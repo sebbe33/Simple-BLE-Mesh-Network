@@ -3952,7 +3952,7 @@
       <archiveVersion>1</archiveVersion>
       <data>
         <prebuild></prebuild>
-        <postbuild>"$PROJ_DIR$\..\..\common\cc2540\cc254x_ubl_pp.bat" "$PROJ_DIR$" "ProdUBL" "$PROJ_DIR$\BLEMINI-USB UBL-1.3.2\Exe\Biscuit"</postbuild>
+        <postbuild>"$PROJ_DIR$\..\..\common\cc2540\cc254x_ubl_pp.bat" "$PROJ_DIR$" "ProdUBL" "$PROJ_DIR$\BLEMINI-USB UBL-1.3.2\Exe\SimpleBleMeshNetwork"</postbuild>
       </data>
     </settings>
     <settings>
@@ -4170,7 +4170,7 @@
         </option>
         <option>
           <name>ExtraOutputFile</name>
-          <state>Biscuit.sim</state>
+          <state>SimpleBleMeshNetwork.sim</state>
         </option>
         <option>
           <name>ExtraOutputFormat</name>
@@ -4337,6 +4337,12 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\OSAL_Biscuit.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\print_uart.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\print_uart.h</name>
     </file>
   </group>
   <group>

@@ -55,7 +55,7 @@
 #include "i2c.h"
 #include "eeprom.h"
 #include "string.h"
-
+#include "print_uart.h"
 /*********************************************************************
  * MACROS
  */
