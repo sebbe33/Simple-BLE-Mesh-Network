@@ -27,3 +27,11 @@
 *.i*86
 *.x86_64
 *.hex
+*.bin
+
+# Ignore whole TI folder .. but the project folder
+BLE-CC254x-1.4.0/*
+!BLE-CC254x-1.4.0/Projects
+BLE-CC254x-1.4.0/Projects/ble/*
+!BLE-CC254x-1.4.0/Projects/ble/simpleblemesh
+
