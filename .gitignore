@@ -29,9 +29,15 @@
 *.hex
 *.bin
 
+# IAR related
+*.dep
+*.sfr
+
+
 # Ignore whole TI folder .. but the project folder
 BLE-CC254x-1.4.0/*
 !BLE-CC254x-1.4.0/Projects
 BLE-CC254x-1.4.0/Projects/ble/*
 !BLE-CC254x-1.4.0/Projects/ble/simpleblemesh
-
+BLE-CC254x-1.4.0/Projects/ble/simpleblemesh/CC2540DB/settings/
+BLE-CC254x-1.4.0/Projects/ble/simpleblemesh/CC2540DB/BLEMINI*
