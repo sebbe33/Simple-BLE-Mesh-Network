@@ -106,6 +106,8 @@
 #define MAX_RX_LEN                            128
 #define SBP_RX_TIME_OUT                       5
 
+#define DEFAULT_SCAN_DURATION                 4000
+
 /*********************************************************************
  * TYPEDEFS
  */
@@ -169,6 +171,17 @@ static uint8 advertData[31] =
 
 // GAP GATT Attributes
 static uint8 attDeviceName[GAP_DEVICE_NAME_LEN] = "BLE Mini";
+
+
+// Number of scan results and scan result index
+static uint8 simpleBLEScanRes;
+static uint8 simpleBLEScanIdx;
+
+// Scan result list
+static gapDevRec_t simpleBLEDevList[DEFAULT_MAX_SCAN_RES];
+
+// Scanning state
+static uint8 simpleBLEScanning = FALSE;
 
 /*********************************************************************
  * LOCAL FUNCTIONS
@@ -261,6 +274,12 @@ void Biscuit_Init( uint8 task_id )
     GAPRole_SetParameter( GAPROLE_TIMEOUT_MULTIPLIER, sizeof( uint16 ), &desired_conn_timeout );
   }
 
+  // Setup observer related GAP profile properties
+  {
+    uint8 scanRes = DEFAULT_MAX_SCAN_RES;
+    GAPRole_SetParameter(GAPOBSERVERROLE_MAX_SCAN_RES, sizeof( uint8 ), &scanRes);
+  }
+
   i2c_init();
   
   // Set the GAP Characteristics
@@ -310,6 +329,11 @@ void Biscuit_Init( uint8 task_id )
     GAP_SetParamValue( TGAP_LIM_DISC_ADV_INT_MAX, advInt );
     GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MIN, advInt );
     GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MAX, advInt );
+  }
+
+  {
+    GAP_SetParamValue( TGAP_GEN_DISC_SCAN, DEFAULT_SCAN_DURATION );
+    GAP_SetParamValue( TGAP_LIM_DISC_SCAN, DEFAULT_SCAN_DURATION );
   }
 
   // Setup the GAP Bond Manager
