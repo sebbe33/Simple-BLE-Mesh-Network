@@ -2,7 +2,7 @@
 
 <workspace>
   <project>
-    <path>$WS_DIR$\SimpleBleMeshNetwork.ewp</path>
+    <path>$WS_DIR$\simpleblemesh.ewp</path>
   </project>
   <batchBuild>
     <batchDefinition>

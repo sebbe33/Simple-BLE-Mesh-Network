@@ -55,6 +55,7 @@
 #include "i2c.h"
 #include "eeprom.h"
 #include "string.h"
+
 #include "print_uart.h"
 /*********************************************************************
  * MACROS
@@ -647,11 +648,13 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
 
     case GAPROLE_ADVERTISING:
       {
+        debugPrintLine("Started advertising");
       }
       break;
 
     case GAPROLE_CONNECTED:
-      {     
+      { 
+        debugPrintLine("Connected");
         uint8 advertising_enable = FALSE;
         GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &advertising_enable );
       }
