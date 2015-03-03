@@ -7,14 +7,20 @@ void setup()
 
 void loop()
 {
-  
+  int i = BLEMini_available();
   // If data is ready
   while (BLEMini_available())
   {
-    char c = (char) BLEMini_read();
+    int b = BLEMini_read();
+    char c = (char) b;
     // print it out
-    Serial.print(c);
+    Serial.print(b);
+    Serial.print(", ");
   }
+  if(i>0){
+    Serial.print("\n");
+    }
+
   delay(100);
 }
 

@@ -44,7 +44,7 @@
 #include "gattservapp.h"
 #include "devinfoservice.h"
 
-#include "peripheral.h"
+#include "peripheralobserver.h"
 
 #include "gapbondmgr.h"
 
@@ -107,6 +107,20 @@
 #define SBP_RX_TIME_OUT                       5
 
 #define DEFAULT_SCAN_DURATION                 4000
+
+// Discovey mode (limited, general, all)
+#define DEFAULT_DISCOVERY_MODE                DEVDISC_MODE_ALL
+
+// TRUE to use active scan
+#define DEFAULT_DISCOVERY_ACTIVE_SCAN         FALSE
+
+// TRUE to use white list during discovery
+#define DEFAULT_DISCOVERY_WHITE_LIST          FALSE
+
+// Maximum number of scan responses
+#define DEFAULT_MAX_SCAN_RES                  8
+
+
 
 /*********************************************************************
  * TYPEDEFS
@@ -190,6 +204,8 @@ static void biscuit_ProcessOSALMsg( osal_event_hdr_t *pMsg );
 static void peripheralStateNotificationCB( gaprole_States_t newState );
 static void performPeriodicTask( void );
 static void txrxServiceChangeCB( uint8 paramID );
+static void simpleBLEObserverEventCB( gapObserverRoleEvent_t *pEvent );
+
 
 #if defined( CC2540_MINIDK )
 static void biscuit_HandleKeys( uint8 shift, uint8 keys );
@@ -206,6 +222,12 @@ static gapRolesCBs_t biscuit_PeripheralCBs =
 {
   peripheralStateNotificationCB,  // Profile State Change Callbacks
   NULL                            // When a valid RSSI is read from controller (not used by application)
+};
+
+static gapObserverRoleCB_t observerCB =
+{
+  NULL,                     // RSSI callback
+  simpleBLEObserverEventCB  // Event callback
 };
 
 // GAP Bond Manager Callbacks
@@ -528,7 +550,7 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
   if ( events & SBP_START_DEVICE_EVT )
   {
     // Start the Device
-    VOID GAPRole_StartDevice( &biscuit_PeripheralCBs );
+    VOID GAPRole_StartDevice( &biscuit_PeripheralCBs, &observerCB );
 
     // Start Bond Manager
     VOID GAPBondMgr_Register( &biscuit_BondMgrCBs );
@@ -679,6 +701,9 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     case GAPROLE_CONNECTED:
       { 
         debugPrintLine("Connected");
+        HalUARTWrite(NPI_UART_PORT, (uint8*)advertData, 31);
+        
+          
         uint8 advertising_enable = FALSE;
         GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &advertising_enable );
       }
@@ -712,6 +737,64 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
 
   gapProfileState = newState;
 }
+
+/*********************************************************************
+ * @fn      simpleBLEObserverEventCB
+ *
+ * @brief   Observer event callback function.
+ *
+ * @param   pEvent - pointer to event structure
+ *
+ * @return  none
+ */
+static void simpleBLEObserverEventCB( gapObserverRoleEvent_t *pEvent )
+{
+  
+  debugPrintLine("ehmarine");
+  switch ( pEvent->gap.opcode )
+  {
+    case GAP_DEVICE_INIT_DONE_EVENT:  
+      {
+        //LCD_WRITE_STRING( "BLE Observer", HAL_LCD_LINE_1 );
+        //LCD_WRITE_STRING( bdAddr2Str( pEvent->initDone.devAddr ),  HAL_LCD_LINE_2 );
+      }
+      break;
+
+    case GAP_DEVICE_INFO_EVENT:
+      {
+        //simpleBLEAddDeviceInfo( pEvent->deviceInfo.addr, pEvent->deviceInfo.addrType );
+        debugPrintLine("ehmarine");
+      }
+      break;
+      
+    case GAP_DEVICE_DISCOVERY_EVENT:
+      {
+        // discovery complete
+        simpleBLEScanning = FALSE;
+
+        // Copy results
+        simpleBLEScanRes = pEvent->discCmpl.numDevs;
+        osal_memcpy( simpleBLEDevList, pEvent->discCmpl.pDevList,
+                     (sizeof( gapDevRec_t ) * pEvent->discCmpl.numDevs) );
+        
+        //LCD_WRITE_STRING_VALUE( "Devices Found", simpleBLEScanRes,
+        //                        10, HAL_LCD_LINE_1 );
+        /*if ( simpleBLEScanRes > 0 )
+        {
+          LCD_WRITE_STRING( "<- To Select", HAL_LCD_LINE_2 );
+        }*/
+
+        // initialize scan index to last device
+        simpleBLEScanIdx = simpleBLEScanRes;
+      }
+      break;
+      
+    default:
+      break;
+  }
+}
+
+
 
 /*********************************************************************
  * @fn      performPeriodicTask
