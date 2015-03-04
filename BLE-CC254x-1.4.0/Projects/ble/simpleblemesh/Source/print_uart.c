@@ -1,6 +1,8 @@
 #include "print_uart.h"
 #include "hal_uart.h"
 #include "npi.h"
+
+
 static uint16 getLengthOfString(char*);
 
 void debugPrint(char* charSequence)
@@ -21,6 +23,14 @@ void debugPrintRaw(uint8* data)
   HalUARTWrite(NPI_UART_PORT, &rawinit, 1); 
   HalUARTWrite (NPI_UART_PORT, data, 1);
   HalUARTWrite(NPI_UART_PORT, &rawinit, 1); 
+}
+
+void debugPrintRawArray(uint8* data, uint8 len){
+  uint8 rawinit = 0xFF;
+  HalUARTWrite(NPI_UART_PORT, &rawinit, 1); 
+  HalUARTWrite(NPI_UART_PORT, data, len); 
+  HalUARTWrite(NPI_UART_PORT, &rawinit, 1); 
+
 }
 
 static uint16 getLengthOfString(char* charSequence) 
