@@ -44,7 +44,7 @@ SOFTWARE.
 #include "gattservapp.h"
 #include "devinfoservice.h"
 
-#include "peripheralobserver.h"
+#include "peripheralObserverProfile.h"
 
 #include "gapbondmgr.h"
 
@@ -204,7 +204,7 @@ static void biscuit_ProcessOSALMsg( osal_event_hdr_t *pMsg );
 static void peripheralStateNotificationCB( gaprole_States_t newState );
 static void performPeriodicTask( void );
 static void txrxServiceChangeCB( uint8 paramID );
-static void simpleBLEObserverEventCB( gapObserverRoleEvent_t *pEvent );
+static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent );
 
 
 #if defined( CC2540_MINIDK )
@@ -221,14 +221,15 @@ static void dataHandler( uint8 port, uint8 events );
 static gapRolesCBs_t biscuit_PeripheralCBs =
 {
   peripheralStateNotificationCB,  // Profile State Change Callbacks
-  NULL                            // When a valid RSSI is read from controller (not used by application)
+  NULL,                            // When a valid RSSI is read from controller (not used by application)
+  simpleBLEObserverEventCB
 };
-
+/*
 static gapObserverRoleCB_t observerCB =
 {
   NULL,                     // RSSI callback
   simpleBLEObserverEventCB  // Event callback
-};
+};*/
 
 // GAP Bond Manager Callbacks
 static gapBondCBs_t biscuit_BondMgrCBs =
@@ -270,7 +271,7 @@ void Biscuit_Init( uint8 task_id )
   // Setup the GAP Peripheral Role Profile
   {
     // Device starts advertising upon initialization
-    uint8 initial_advertising_enable = FALSE;
+    uint8 initial_advertising_enable = TRUE;
     
     // By setting this to zero, the device will go into the waiting state after
     // being discoverable for 30.72 second, and will not being advertising again
@@ -550,7 +551,7 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
   if ( events & SBP_START_DEVICE_EVT )
   {
     // Start the Device
-    VOID GAPRole_StartDevice( &biscuit_PeripheralCBs, &observerCB );
+    VOID GAPRole_StartDevice( &biscuit_PeripheralCBs);
     
     // Start Bond Manager
     VOID GAPBondMgr_Register( &biscuit_BondMgrCBs );
@@ -715,10 +716,10 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     }
     break;
     
-  case GAPROLE_CONNECTED_ADV:
+  /*case GAPROLE_CONNECTED_ADV:
     {
     }
-    break;      
+    break;*/      
   case GAPROLE_WAITING:
     {
     }
@@ -753,7 +754,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
 *
 * @return  none
 */
-static void simpleBLEObserverEventCB( gapObserverRoleEvent_t *pEvent )
+static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 {
   
   debugPrintRaw(&pEvent->gap.opcode);
