@@ -106,7 +106,7 @@
 #define MAX_RX_LEN                            128
 #define SBP_RX_TIME_OUT                       5
 
-#define DEFAULT_SCAN_DURATION                 4000
+#define DEFAULT_SCAN_DURATION                 30000
 
 // Discovey mode (limited, general, all)
 #define DEFAULT_DISCOVERY_MODE                DEVDISC_MODE_ALL
@@ -558,6 +558,12 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     // Set timer for first periodic event
     osal_start_timerEx( biscuit_TaskID, SBP_PERIODIC_EVT, SBP_PERIODIC_EVT_PERIOD );
 
+    debugPrintLine("Starting search...");
+    bStatus_t ret = GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
+                                      DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                      DEFAULT_DISCOVERY_WHITE_LIST );  
+    char st[] = {'S', ret, '\0'};
+    debugPrintLine(st);
     return ( events ^ SBP_START_DEVICE_EVT );
   }
   

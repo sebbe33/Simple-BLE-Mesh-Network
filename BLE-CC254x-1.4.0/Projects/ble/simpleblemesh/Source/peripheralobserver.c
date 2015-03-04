@@ -762,7 +762,7 @@ void GAPRole_Init( uint8 task_id )
   gapRole_state = GAPROLE_INIT;
   gapRole_ConnectionHandle = INVALID_CONNHANDLE;
   
-  GAP_RegisterForHCIMsgs( gapRole_TaskID );
+  //GAP_RegisterForHCIMsgs( gapRole_TaskID );
   
   // Initialize the Profile Advertising and Connection Parameters
   gapRole_profileRole = GAP_PROFILE_PERIPHERAL | GAP_PROFILE_OBSERVER;
