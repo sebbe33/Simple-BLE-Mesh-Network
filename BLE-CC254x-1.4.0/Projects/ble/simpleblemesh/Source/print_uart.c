@@ -15,11 +15,19 @@ void debugPrintLine(char* charSequence)
   HalUARTWrite(NPI_UART_PORT, &newLineChar, 1); 
 }
 
+void debugPrintRaw(uint8* data)
+{
+  uint8 rawinit = 0xFF;
+  HalUARTWrite(NPI_UART_PORT, &rawinit, 1); 
+  HalUARTWrite (NPI_UART_PORT, data, 1);
+  HalUARTWrite(NPI_UART_PORT, &rawinit, 1); 
+}
+
 static uint16 getLengthOfString(char* charSequence) 
 {
   uint16 length = 0;
   for (char* pointerIndex = charSequence; *pointerIndex != '\0'; pointerIndex++){
-      length++;
+    length++;
   }
   return length;
 }

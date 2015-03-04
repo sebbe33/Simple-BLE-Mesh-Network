@@ -691,10 +691,7 @@ bStatus_t GAPObserverRole_CancelDiscovery( void )
 */
 bStatus_t GAPRole_StartDevice( gapRolesCBs_t *pAppCallbacks, gapObserverRoleCB_t *observerCallback)
 {
-  if ( observerCallback )
-  {
-    pGapObserverRoleCB = observerCallback;
-  }
+  
   
   if ( gapRole_state == GAPROLE_INIT )
   {
@@ -702,6 +699,11 @@ bStatus_t GAPRole_StartDevice( gapRolesCBs_t *pAppCallbacks, gapObserverRoleCB_t
     if ( pAppCallbacks )
     {
       pGapRoles_AppCGs = pAppCallbacks;
+    }
+    
+    if ( observerCallback )
+    {
+      pGapObserverRoleCB = observerCallback;
     }
     
     // Start the GAP
@@ -762,7 +764,7 @@ void GAPRole_Init( uint8 task_id )
   gapRole_state = GAPROLE_INIT;
   gapRole_ConnectionHandle = INVALID_CONNHANDLE;
   
-  //GAP_RegisterForHCIMsgs( gapRole_TaskID );
+  GAP_RegisterForHCIMsgs( gapRole_TaskID );
   
   // Initialize the Profile Advertising and Connection Parameters
   gapRole_profileRole = GAP_PROFILE_PERIPHERAL | GAP_PROFILE_OBSERVER;
@@ -780,7 +782,7 @@ void GAPRole_Init( uint8 task_id )
   VOID osal_snv_read( BLE_NVID_SIGNCOUNTER, sizeof( uint32 ), &gapRole_signCounter );
   
   // Register for HCI messages (for RSSI)
-  GAP_RegisterForHCIMsgs( task_id );
+  //GAP_RegisterForHCIMsgs( task_id );
 }
 
 /*********************************************************************
@@ -1272,7 +1274,7 @@ static void gapRole_ProcessGAPMsg( gapEventHdr_t *pMsg )
 static void gapRole_SetupGAP( void )
 {
   VOID GAP_DeviceInit( gapRole_TaskID,
-                      gapRole_profileRole, 0,
+                      gapRole_profileRole, gapObserverRoleMaxScanRes,
                       gapRole_IRK, gapRole_SRK,
                       &gapRole_signCounter );
 }
