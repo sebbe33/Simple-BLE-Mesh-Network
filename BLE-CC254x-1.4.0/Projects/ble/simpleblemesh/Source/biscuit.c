@@ -340,8 +340,8 @@ void Biscuit_Init( uint8 task_id )
     LocalName[i] = eeprom_read(i+8);
   }
   advertData[3] = nameLen + 1;  
-  osal_memcpy(&advertData[5], LocalName, nameLen);  
-  osal_memset(&advertData[nameLen+5], 0, 31-5-nameLen);
+  //osal_memcpy(&advertData[5], LocalName, nameLen);  
+  //osal_memset(&advertData[nameLen+5], 0, 31-5-nameLen);
   GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( advertData ), advertData );
   
   // Set advertising interval
@@ -771,6 +771,22 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
     {
       //simpleBLEAddDeviceInfo( pEvent->deviceInfo.addr, pEvent->deviceInfo.addrType );
       debugPrintLine("ehmarine");
+      uint8* data = pEvent->deviceInfo.pEvtData;
+      uint8  dataLen = pEvent->deviceInfo.dataLen;
+      data[0] = 3;
+      data[1] = 1;
+      
+      if(data[3] == 0x1A){
+      osal_memcpy(&advertData[5], data, dataLen-5);
+      GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( advertData ), advertData );
+      uint8 initial_advertising_enable = TRUE;
+      GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &initial_advertising_enable );
+        
+      }
+      
+      
+      
+      
     }
     break;
     
