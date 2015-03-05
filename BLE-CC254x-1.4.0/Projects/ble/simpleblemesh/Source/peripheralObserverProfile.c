@@ -235,25 +235,43 @@ bStatus_t GAPRole_SetParameter( uint16 param, uint8 len, void *pValue )
   case GAPROLE_ADVERT_ENABLED:
     if ( len == sizeof( uint8 ) )
     {
-      uint8 oldAdvEnabled = gapRole_AdvEnabled;
-      gapRole_AdvEnabled = *((uint8*)pValue);
-      
-      if ( (oldAdvEnabled) && (gapRole_AdvEnabled == FALSE) )
+      if ( (gapRole_state == GAPROLE_CONNECTED) || (gapRole_state == GAPROLE_CONNECTED_ADV) )
       {
-        // Turn off Advertising
-        if ( gapRole_state == GAPROLE_ADVERTISING )
+        uint8 advEnabled = *((uint8*)pValue);
+
+        if ( (gapRole_state == GAPROLE_CONNECTED) && (advEnabled == TRUE) )
         {
-          VOID GAP_EndDiscoverable( gapRole_TaskID );
+          // Turn on advertising
+          osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
+        }
+        else if ( (gapRole_state == GAPROLE_CONNECTED_ADV) && (advEnabled == FALSE) )
+        {
+          // Turn off Advertising
+          GAP_EndDiscoverable( gapRole_TaskID );
         }
       }
-      else if ( (oldAdvEnabled == FALSE) && (gapRole_AdvEnabled) )
-      {
-        // Turn on Advertising
-        if ( (gapRole_state == GAPROLE_STARTED)
-            || (gapRole_state == GAPROLE_WAITING)
-              || (gapRole_state == GAPROLE_WAITING_AFTER_TIMEOUT) )
+      else
+      {  
+        uint8 oldAdvEnabled = gapRole_AdvEnabled;
+        gapRole_AdvEnabled = *((uint8*)pValue);
+        
+        if ( (oldAdvEnabled) && (gapRole_AdvEnabled == FALSE) )
         {
-          VOID osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
+          // Turn off Advertising
+          if ( gapRole_state == GAPROLE_ADVERTISING )
+          {
+            VOID GAP_EndDiscoverable( gapRole_TaskID );
+          }
+        }
+        else if ( (oldAdvEnabled == FALSE) && (gapRole_AdvEnabled) )
+        {
+          // Turn on Advertising
+          if ( (gapRole_state == GAPROLE_STARTED)
+              || (gapRole_state == GAPROLE_WAITING)
+                || (gapRole_state == GAPROLE_WAITING_AFTER_TIMEOUT) )
+          {
+            VOID osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
+          }
         }
       }
     }
@@ -297,6 +315,10 @@ bStatus_t GAPRole_SetParameter( uint16 param, uint8 len, void *pValue )
       VOID osal_memset( gapRole_ScanRspData, 0, B_MAX_ADV_LEN );
       VOID osal_memcpy( gapRole_ScanRspData, pValue, len );
       gapRole_ScanRspDataLen = len;
+
+      // Update the Response Data
+        ret = GAP_UpdateAdvertisingData( gapRole_TaskID,
+                              FALSE, gapRole_ScanRspDataLen, gapRole_ScanRspData );
     }
     else
     {
@@ -838,14 +860,16 @@ static void gapRole_ProcessOSALMsg( osal_event_hdr_t *pMsg )
       {
         int8 rssi = (int8)pPkt->pReturnParam[3];
         
-        if ( (gapRole_state == GAPROLE_CONNECTED) && (rssi != RSSI_NOT_AVAILABLE) )
-        {
-          // Report RSSI to app
-          if ( pGapRoles_AppCGs && pGapRoles_AppCGs->pfnRssiRead )
+          if ( ((gapRole_state == GAPROLE_CONNECTED)
+                        || (gapRole_state == GAPROLE_CONNECTED_ADV))
+                && (rssi != RSSI_NOT_AVAILABLE) )
           {
-            pGapRoles_AppCGs->pfnRssiRead( rssi );
+            // Report RSSI to app
+            if ( pGapRoles_AppCGs && pGapRoles_AppCGs->pfnRssiRead )
+            {
+              pGapRoles_AppCGs->pfnRssiRead( rssi );
+            }
           }
-        }
       }
     }
     break;
@@ -973,7 +997,17 @@ static void gapRole_ProcessGAPMsg( gapEventHdr_t *pMsg )
       {
         if ( pMsg->opcode == GAP_MAKE_DISCOVERABLE_DONE_EVENT )
         {
-          gapRole_state = GAPROLE_ADVERTISING;
+          
+          if (gapRole_state == GAPROLE_CONNECTED)
+          {
+            gapRole_state = GAPROLE_CONNECTED_ADV;
+          }
+          else
+          {
+            gapRole_state = GAPROLE_ADVERTISING;
+          }
+            
+          //gapRole_state = GAPROLE_ADVERTISING;
         }
         else // GAP_END_DISCOVERABLE_DONE_EVENT
         {
@@ -994,9 +1028,26 @@ static void gapRole_ProcessGAPMsg( gapEventHdr_t *pMsg )
             gapRole_AdvEnabled = FALSE;
           }
           
-          // In the Advertising Off period
-          gapRole_state = GAPROLE_WAITING;
           
+          if (gapRole_state == GAPROLE_CONNECTED_ADV)
+          {
+            // In the Advertising Off period
+            gapRole_state = GAPROLE_CONNECTED;
+          }
+          else if (gapRole_state == GAPROLE_WAITING_AFTER_TIMEOUT)
+          {
+            // Advertising was just turned off after the link disconnected so begin
+            // advertising again.
+            gapRole_AdvEnabled = TRUE;
+            
+            // Turn advertising back on.
+            VOID osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
+          }
+          else
+          {
+            // In the Advertising Off period
+            gapRole_state = GAPROLE_WAITING;
+          }
         }
       }
       else
@@ -1061,34 +1112,45 @@ static void gapRole_ProcessGAPMsg( gapEventHdr_t *pMsg )
   case GAP_LINK_TERMINATED_EVENT:
     {
       gapTerminateLinkEvent_t *pPkt = (gapTerminateLinkEvent_t *)pMsg;
-      
       GAPBondMgr_ProcessGAPMsg( (gapEventHdr_t *)pMsg );
       osal_memset( gapRole_ConnectedDevAddr, 0, B_ADDR_LEN );
-      
-      // Erase connection information
-      gapRole_ConnInterval = 0;
-      gapRole_ConnSlaveLatency = 0;
-      gapRole_ConnTimeout = 0;
-      
-      // Cancel all connection parameter update timers (if any active)
-      VOID osal_stop_timerEx( gapRole_TaskID, START_CONN_UPDATE_EVT );
-      VOID osal_stop_timerEx( gapRole_TaskID, CONN_PARAM_TIMEOUT_EVT );
-      
-      // Go to WAITING state, and then start advertising
-      if( pPkt->reason == LL_SUPERVISION_TIMEOUT_TERM )
+
+      if ( gapRole_state == GAPROLE_CONNECTED_ADV )
       {
-        gapRole_state = GAPROLE_WAITING_AFTER_TIMEOUT;
+        // End the non-connectable advertising
+        GAP_EndDiscoverable( gapRole_TaskID );
+        gapRole_state = GAPROLE_CONNECTED;
       }
-      else
+      else 
       {
-        gapRole_state = GAPROLE_WAITING;
+        GAPBondMgr_ProcessGAPMsg( (gapEventHdr_t *)pMsg );
+        osal_memset( gapRole_ConnectedDevAddr, 0, B_ADDR_LEN );
+        
+        // Erase connection information
+        gapRole_ConnInterval = 0;
+        gapRole_ConnSlaveLatency = 0;
+        gapRole_ConnTimeout = 0;
+        
+        // Cancel all connection parameter update timers (if any active)
+        VOID osal_stop_timerEx( gapRole_TaskID, START_CONN_UPDATE_EVT );
+        VOID osal_stop_timerEx( gapRole_TaskID, CONN_PARAM_TIMEOUT_EVT );
+        
+        // Go to WAITING state, and then start advertising
+        if( pPkt->reason == LL_SUPERVISION_TIMEOUT_TERM )
+        {
+          gapRole_state = GAPROLE_WAITING_AFTER_TIMEOUT;
+        }
+        else
+        {
+          gapRole_state = GAPROLE_WAITING;
+        }
+        
+        notify = TRUE;
+        
+        VOID osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
+        
+        gapRole_ConnectionHandle = INVALID_CONNHANDLE;
       }
-      
-      notify = TRUE;
-      
-      VOID osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
-      
-      gapRole_ConnectionHandle = INVALID_CONNHANDLE;
     }
     break;
     

@@ -111,16 +111,17 @@ extern "C"
   /**
   * GAP Peripheral Role States.
   */
-  typedef enum
-  {
-    GAPROLE_INIT = 0,                       //!< Waiting to be started
-    GAPROLE_STARTED,                        //!< Started but not advertising
-    GAPROLE_ADVERTISING,                    //!< Currently Advertising
-    GAPROLE_WAITING,                        //!< Device is started but not advertising, is in waiting period before advertising again
-    GAPROLE_WAITING_AFTER_TIMEOUT,          //!< Device just timed out from a connection but is not yet advertising, is in waiting period before advertising again
-    GAPROLE_CONNECTED,                      //!< In a connection
-    GAPROLE_ERROR                           //!< Error occurred - invalid state
-  } gaprole_States_t;
+typedef enum
+{
+  GAPROLE_INIT = 0,                       //!< Waiting to be started
+  GAPROLE_STARTED,                        //!< Started but not advertising
+  GAPROLE_ADVERTISING,                    //!< Currently Advertising
+  GAPROLE_WAITING,                        //!< Device is started but not advertising, is in waiting period before advertising again
+  GAPROLE_WAITING_AFTER_TIMEOUT,          //!< Device just timed out from a connection but is not yet advertising, is in waiting period before advertising again
+  GAPROLE_CONNECTED,                      //!< In a connection
+  GAPROLE_CONNECTED_ADV,                  //!< In a connection + advertising
+  GAPROLE_ERROR                           //!< Error occurred - invalid state
+} gaprole_States_t;
   
   /**
   * Observer Event Structure

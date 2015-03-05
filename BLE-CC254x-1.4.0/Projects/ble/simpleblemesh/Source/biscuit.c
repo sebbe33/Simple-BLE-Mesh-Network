@@ -668,6 +668,7 @@ static void biscuit_HandleKeys( uint8 shift, uint8 keys )
 */
 static void peripheralStateNotificationCB( gaprole_States_t newState )
 {  
+  static uint8 first_conn_flag = 0;
   switch ( newState )
   {
   case GAPROLE_STARTED:
@@ -711,8 +712,15 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
       HalUARTWrite(NPI_UART_PORT, (uint8*)advertData, 31);
       
       
-      uint8 advertising_enable = FALSE;
-      GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &advertising_enable );
+      // Only turn advertising on for this state when we first connect
+      // otherwise, when we go from connected_advertising back to this state
+      // we will be turning advertising back on.
+      if ( first_conn_flag == 0 ) 
+      {
+        uint8 adv_enabled_status = 1;
+        GAPRole_SetParameter(GAPROLE_ADVERT_ENABLED, sizeof(uint8), &adv_enabled_status); // Turn on Advertising
+        first_conn_flag = 1;
+      }
     }
     break;
     
@@ -727,6 +735,8 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     
   case GAPROLE_WAITING_AFTER_TIMEOUT:
     {
+        // Reset flag for next connection.
+        first_conn_flag = 0;
     }
     break;
     
@@ -779,8 +789,8 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
       if(data[3] == 0x1A){
       osal_memcpy(&advertData[5], data, dataLen-5);
       GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( advertData ), advertData );
-      uint8 initial_advertising_enable = TRUE;
-      GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &initial_advertising_enable );
+      //uint8 initial_advertising_enable = TRUE;
+      //GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &initial_advertising_enable );
         
       }
       
