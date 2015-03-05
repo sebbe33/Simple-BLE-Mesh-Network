@@ -7,6 +7,7 @@ void setup()
 
 void loop()
 {
+<<<<<<< HEAD
   
   bool printingRawData = false;
   // If data is ready
@@ -26,6 +27,11 @@ void loop()
       Serial.print(c);
     }
   }
+  
+  if(i>0){
+    Serial.print("\n");
+  }
+
   delay(100);
 }
 

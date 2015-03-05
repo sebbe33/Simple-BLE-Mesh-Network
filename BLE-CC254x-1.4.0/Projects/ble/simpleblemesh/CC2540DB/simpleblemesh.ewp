@@ -4339,6 +4339,12 @@
       <name>$PROJ_DIR$\..\Source\OSAL_Biscuit.c</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\Source\peripheralObserverProfile.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\peripheralObserverProfile.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\Source\print_uart.c</name>
     </file>
     <file>
@@ -4647,7 +4653,7 @@
   <group>
     <name>LIB</name>
     <file>
-      <name>$PROJ_DIR$\..\..\Libraries\CC2540DB\bin\CC2540_BLE_peri.lib</name>
+      <name>$PROJ_DIR$\..\..\Libraries\CC2540DB\bin\CC2540_BLE_peri_observ.lib</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\Libraries\Common\bin\CC254x_BLE_HCI_TL_None.lib</name>
@@ -4732,12 +4738,6 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\Include\gattservapp.h</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\..\Profiles\Roles\peripheral.c</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\..\Profiles\Roles\peripheral.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\Profiles\TXRX\txrxservice.c</name>
