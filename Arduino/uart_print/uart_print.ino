@@ -8,12 +8,23 @@ void setup()
 void loop()
 {
   
+  bool printingRawData = false;
   // If data is ready
   while (BLEMini_available())
   {
-    char c = (char) BLEMini_read();
-    // print it out
-    Serial.print(c);
+    byte b = BLEMini_read();
+    if(b == 0xFF) {
+      // end of printing raw data
+      if(printingRawData) {
+        Serial.print('\n');
+      }
+      printingRawData = !printingRawData;
+    } else if(printingRawData) {
+      Serial.print(b);
+    } else {
+      char c = (char) b;
+      Serial.print(c);
+    }
   }
   delay(100);
 }
