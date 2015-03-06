@@ -134,7 +134,7 @@ typedef enum
     gapDevDiscEvent_t         discCmpl;           //!< Discovery complete event structure.
   } observerRoleEvent_t;
   
-  
+  uint8 getStatus_();
   /*-------------------------------------------------------------------
   * MACROS
   */

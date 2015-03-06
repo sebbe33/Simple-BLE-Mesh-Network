@@ -81,10 +81,10 @@ SOFTWARE.
 #endif  // defined ( CC2540_MINIDK )
 
 // Minimum connection interval (units of 1.25ms, 80=100ms) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_MIN_CONN_INTERVAL     16
+#define DEFAULT_DESIRED_MIN_CONN_INTERVAL     80
 
 // Maximum connection interval (units of 1.25ms, 800=1000ms) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     16
+#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     800
 
 // Slave latency to use if automatic parameter update request is enabled
 #define DEFAULT_DESIRED_SLAVE_LATENCY         0
@@ -93,7 +93,7 @@ SOFTWARE.
 #define DEFAULT_DESIRED_CONN_TIMEOUT          1000
 
 // Whether to enable automatic parameter update request when a connection is formed
-#define DEFAULT_ENABLE_UPDATE_REQUEST         TRUE
+#define DEFAULT_ENABLE_UPDATE_REQUEST         FALSE;
 
 // Connection Pause Peripheral time value (in seconds)
 #define DEFAULT_CONN_PAUSE_PERIPHERAL         6
@@ -227,8 +227,8 @@ static gapRolesCBs_t biscuit_PeripheralCBs =
 /*
 static gapObserverRoleCB_t observerCB =
 {
-  NULL,                     // RSSI callback
-  simpleBLEObserverEventCB  // Event callback
+NULL,                     // RSSI callback
+simpleBLEObserverEventCB  // Event callback
 };*/
 
 // GAP Bond Manager Callbacks
@@ -548,6 +548,15 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     return (events ^ SYS_EVENT_MSG);
   }
   
+  if ( events & SBP_ADV_IN_CONNECTION_EVT )
+  {
+    uint8 turnOnAdv = TRUE;
+    // Turn on advertising while in a connection
+    GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv );
+    
+    return (events ^ SBP_ADV_IN_CONNECTION_EVT);
+  }
+  
   if ( events & SBP_START_DEVICE_EVT )
   {
     // Start the Device
@@ -699,7 +708,8 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
   case GAPROLE_ADVERTISING:
     {
       debugPrintLine("Started advertising");
-      
+      uint8 stat = getStatus_();
+      debugPrintRaw(&stat);
       
       
       
@@ -709,24 +719,19 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
   case GAPROLE_CONNECTED:
     { 
       debugPrintLine("Connected");
-      HalUARTWrite(NPI_UART_PORT, (uint8*)advertData, 31);
-      
+             
       
       // Only turn advertising on for this state when we first connect
       // otherwise, when we go from connected_advertising back to this state
       // we will be turning advertising back on.
-      if ( first_conn_flag == 0 ) 
-      {
-        uint8 adv_enabled_status = 1;
-        GAPRole_SetParameter(GAPROLE_ADVERT_ENABLED, sizeof(uint8), &adv_enabled_status); // Turn on Advertising
-        first_conn_flag = 1;
-      }
+      
+            
     }
     break;
     
-  /*case GAPROLE_CONNECTED_ADV:
+    /*case GAPROLE_CONNECTED_ADV:
     {
-    }
+  }
     break;*/      
   case GAPROLE_WAITING:
     {
@@ -735,13 +740,14 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     
   case GAPROLE_WAITING_AFTER_TIMEOUT:
     {
-        // Reset flag for next connection.
-        first_conn_flag = 0;
+      // Reset flag for next connection.
+      first_conn_flag = 0;
     }
     break;
     
   case GAPROLE_ERROR:
     {
+      debugPrintLine("GAPROLE ERROR");
     }
     break;
     
@@ -786,11 +792,14 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
       data[0] = 3;
       data[1] = 1;
       
+      
+      
+      
       if(data[3] == 0x1A){
-      osal_memcpy(&advertData[5], data, dataLen-5);
-      GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( advertData ), advertData );
-      //uint8 initial_advertising_enable = TRUE;
-      //GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &initial_advertising_enable );
+        osal_memcpy(&advertData[5], data, dataLen-5);
+        GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( advertData ), advertData );
+        //uint8 initial_advertising_enable = TRUE;
+        //GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &initial_advertising_enable );
         
       }
       
@@ -846,6 +855,8 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 static void performPeriodicTask( void )
 {
   debugPrintLine("Starting search...");
+  uint8 stat = getStatus_();
+  debugPrintRaw(&stat);
   bStatus_t ret = GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
                                                  DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                                  DEFAULT_DISCOVERY_WHITE_LIST );

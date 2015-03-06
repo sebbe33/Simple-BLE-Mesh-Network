@@ -43,6 +43,7 @@ extern "C"
 #define SBP_START_DEVICE_EVT                              0x0001
 #define SBP_PERIODIC_EVT                                  0x0002
 #define SBP_RX_TIME_OUT_EVT                               0x0004
+#define SBP_ADV_IN_CONNECTION_EVT                         0x0004
 
 /*********************************************************************
  * MACROS

@@ -53,6 +53,7 @@ contact Texas Instruments Incorporated at www.TI.com.
 #include "peripheralObserverProfile.h"
 #include "gapbondmgr.h"
 
+
 /*********************************************************************
 * MACROS
 */
@@ -164,6 +165,12 @@ static uint8  gapObserverRoleMaxScanRes = 0;
 static gapRolesCBs_t *pGapRoles_AppCGs = NULL;
 static gapRolesParamUpdateCB_t *pGapRoles_ParamUpdateCB = NULL;
 
+uint8 gapStatus__;
+
+uint8 getStatus_() {
+  return gapStatus__;
+}
+
 /*********************************************************************
 * Profile Attributes - variables
 */
@@ -238,7 +245,7 @@ bStatus_t GAPRole_SetParameter( uint16 param, uint8 len, void *pValue )
       if ( (gapRole_state == GAPROLE_CONNECTED) || (gapRole_state == GAPROLE_CONNECTED_ADV) )
       {
         uint8 advEnabled = *((uint8*)pValue);
-
+        
         if ( (gapRole_state == GAPROLE_CONNECTED) && (advEnabled == TRUE) )
         {
           // Turn on advertising
@@ -315,10 +322,10 @@ bStatus_t GAPRole_SetParameter( uint16 param, uint8 len, void *pValue )
       VOID osal_memset( gapRole_ScanRspData, 0, B_MAX_ADV_LEN );
       VOID osal_memcpy( gapRole_ScanRspData, pValue, len );
       gapRole_ScanRspDataLen = len;
-
+      
       // Update the Response Data
-        ret = GAP_UpdateAdvertisingData( gapRole_TaskID,
-                              FALSE, gapRole_ScanRspDataLen, gapRole_ScanRspData );
+      ret = GAP_UpdateAdvertisingData( gapRole_TaskID,
+                                      FALSE, gapRole_ScanRspDataLen, gapRole_ScanRspData );
     }
     else
     {
@@ -766,6 +773,8 @@ uint16 GAPRole_ProcessEvent( uint8 task_id, uint16 events )
     return (events ^ SYS_EVENT_MSG);
   }
   
+  
+  
   if ( events & GAP_EVENT_SIGN_COUNTER_CHANGED )
   {
     // Sign counter changed, save it to NV
@@ -781,13 +790,26 @@ uint16 GAPRole_ProcessEvent( uint8 task_id, uint16 events )
       gapAdvertisingParams_t params;
       
       // Setup advertisement parameters
-      params.eventType = gapRole_AdvEventType;
-      params.initiatorAddrType = gapRole_AdvDirectType;
-      VOID osal_memcpy( params.initiatorAddr, gapRole_AdvDirectAddr, B_ADDR_LEN );
+      if ( gapRole_state == GAPROLE_CONNECTED )
+      {
+        // While in a connection, we can only advertise non-connectable undirected.
+        params.eventType = GAP_ADTYPE_ADV_NONCONN_IND;
+      }
+      else
+      {
+        
+        // Setup advertisement parameters
+        params.eventType = gapRole_AdvEventType;
+        params.initiatorAddrType = gapRole_AdvDirectType;
+        VOID osal_memcpy( params.initiatorAddr, gapRole_AdvDirectAddr, B_ADDR_LEN );
+      }
+      
       params.channelMap = gapRole_AdvChanMap;
       params.filterPolicy = gapRole_AdvFilterPolicy;
       
-      if ( GAP_MakeDiscoverable( gapRole_TaskID, &params ) != SUCCESS )
+      gapStatus__ = GAP_MakeDiscoverable(gapRole_TaskID, &params );
+      
+      if ( gapStatus__ != SUCCESS )
       {
         gapRole_state = GAPROLE_ERROR;
         
@@ -860,16 +882,16 @@ static void gapRole_ProcessOSALMsg( osal_event_hdr_t *pMsg )
       {
         int8 rssi = (int8)pPkt->pReturnParam[3];
         
-          if ( ((gapRole_state == GAPROLE_CONNECTED)
-                        || (gapRole_state == GAPROLE_CONNECTED_ADV))
-                && (rssi != RSSI_NOT_AVAILABLE) )
+        if ( ((gapRole_state == GAPROLE_CONNECTED)
+              || (gapRole_state == GAPROLE_CONNECTED_ADV))
+            && (rssi != RSSI_NOT_AVAILABLE) )
+        {
+          // Report RSSI to app
+          if ( pGapRoles_AppCGs && pGapRoles_AppCGs->pfnRssiRead )
           {
-            // Report RSSI to app
-            if ( pGapRoles_AppCGs && pGapRoles_AppCGs->pfnRssiRead )
-            {
-              pGapRoles_AppCGs->pfnRssiRead( rssi );
-            }
+            pGapRoles_AppCGs->pfnRssiRead( rssi );
           }
+        }
       }
     }
     break;
@@ -934,6 +956,7 @@ static void gapRole_ProcessGAPMsg( gapEventHdr_t *pMsg )
     {
       gapDeviceInitDoneEvent_t *pPkt = (gapDeviceInitDoneEvent_t *)pMsg;
       bStatus_t stat = pPkt->hdr.status;
+      
       
       if ( stat == SUCCESS )
       {
@@ -1006,7 +1029,7 @@ static void gapRole_ProcessGAPMsg( gapEventHdr_t *pMsg )
           {
             gapRole_state = GAPROLE_ADVERTISING;
           }
-            
+          
           //gapRole_state = GAPROLE_ADVERTISING;
         }
         else // GAP_END_DISCOVERABLE_DONE_EVENT
@@ -1114,7 +1137,7 @@ static void gapRole_ProcessGAPMsg( gapEventHdr_t *pMsg )
       gapTerminateLinkEvent_t *pPkt = (gapTerminateLinkEvent_t *)pMsg;
       GAPBondMgr_ProcessGAPMsg( (gapEventHdr_t *)pMsg );
       osal_memset( gapRole_ConnectedDevAddr, 0, B_ADDR_LEN );
-
+      
       if ( gapRole_state == GAPROLE_CONNECTED_ADV )
       {
         // End the non-connectable advertising
@@ -1225,10 +1248,12 @@ static void gapRole_ProcessGAPMsg( gapEventHdr_t *pMsg )
 */
 static void gapRole_SetupGAP( void )
 {
-  VOID GAP_DeviceInit( gapRole_TaskID,
-                      gapRole_profileRole, gapObserverRoleMaxScanRes,
-                      gapRole_IRK, gapRole_SRK,
-                      &gapRole_signCounter );
+  bStatus_t s = GAP_DeviceInit( gapRole_TaskID,
+                               gapRole_profileRole, gapObserverRoleMaxScanRes,
+                               gapRole_IRK, gapRole_SRK,
+                               &gapRole_signCounter );
+  
+  gapStatus__ = (uint8) s;
 }
 
 /*********************************************************************
