@@ -7,8 +7,6 @@ void setup()
 
 void loop()
 {
-<<<<<<< HEAD
-  
   bool printingRawData = false;
   // If data is ready
   while (BLEMini_available())
@@ -26,10 +24,6 @@ void loop()
       char c = (char) b;
       Serial.print(c);
     }
-  }
-  
-  if(i>0){
-    Serial.print("\n");
   }
 
   delay(100);

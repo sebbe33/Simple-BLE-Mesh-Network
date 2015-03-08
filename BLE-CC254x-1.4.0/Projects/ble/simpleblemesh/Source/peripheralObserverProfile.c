@@ -788,7 +788,7 @@ uint16 GAPRole_ProcessEvent( uint8 task_id, uint16 events )
     if ( gapRole_AdvEnabled )
     {
       gapAdvertisingParams_t params;
-      
+
       // Setup advertisement parameters
       if ( gapRole_state == GAPROLE_CONNECTED )
       {
@@ -1136,44 +1136,44 @@ static void gapRole_ProcessGAPMsg( gapEventHdr_t *pMsg )
     {
       gapTerminateLinkEvent_t *pPkt = (gapTerminateLinkEvent_t *)pMsg;
       GAPBondMgr_ProcessGAPMsg( (gapEventHdr_t *)pMsg );
+      gaprole_States_t newstate = GAPROLE_WAITING;
+      
+      // Erase connection information
+      gapRole_ConnInterval = 0;
+      gapRole_ConnSlaveLatency = 0;
+      gapRole_ConnTimeout = 0;
       osal_memset( gapRole_ConnectedDevAddr, 0, B_ADDR_LEN );
       
+      // Cancel all connection parameter update timers (if any active)
+      VOID osal_stop_timerEx( gapRole_TaskID, START_CONN_UPDATE_EVT );
+      VOID osal_stop_timerEx( gapRole_TaskID, CONN_PARAM_TIMEOUT_EVT );
+        
       if ( gapRole_state == GAPROLE_CONNECTED_ADV )
       {
         // End the non-connectable advertising
         GAP_EndDiscoverable( gapRole_TaskID );
-        gapRole_state = GAPROLE_CONNECTED;
+        newstate = GAPROLE_CONNECTED;
       }
-      else 
+
+          
+      if( pPkt->reason == LL_SUPERVISION_TIMEOUT_TERM )
       {
-        GAPBondMgr_ProcessGAPMsg( (gapEventHdr_t *)pMsg );
-        osal_memset( gapRole_ConnectedDevAddr, 0, B_ADDR_LEN );
-        
-        // Erase connection information
-        gapRole_ConnInterval = 0;
-        gapRole_ConnSlaveLatency = 0;
-        gapRole_ConnTimeout = 0;
-        
-        // Cancel all connection parameter update timers (if any active)
-        VOID osal_stop_timerEx( gapRole_TaskID, START_CONN_UPDATE_EVT );
-        VOID osal_stop_timerEx( gapRole_TaskID, CONN_PARAM_TIMEOUT_EVT );
-        
-        // Go to WAITING state, and then start advertising
-        if( pPkt->reason == LL_SUPERVISION_TIMEOUT_TERM )
-        {
-          gapRole_state = GAPROLE_WAITING_AFTER_TIMEOUT;
-        }
-        else
-        {
-          gapRole_state = GAPROLE_WAITING;
-        }
-        
+        newstate = GAPROLE_WAITING_AFTER_TIMEOUT;
         notify = TRUE;
-        
-        VOID osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
-        
-        gapRole_ConnectionHandle = INVALID_CONNHANDLE;
+        uint8 adv_enable = TRUE;
+        GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &adv_enable );
       }
+      else if (newstate != GAPROLE_CONNECTED)
+      {
+        newstate = GAPROLE_WAITING;
+        notify = TRUE;
+
+        uint8 adv_enable = TRUE;
+        GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &adv_enable );
+      }
+
+      gapRole_state = newstate; 
+      gapRole_ConnectionHandle = INVALID_CONNHANDLE;
     }
     break;
     

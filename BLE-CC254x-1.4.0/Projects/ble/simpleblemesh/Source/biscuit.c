@@ -550,6 +550,7 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
   
   if ( events & SBP_ADV_IN_CONNECTION_EVT )
   {
+    debugPrintLine("hejsan123");
     uint8 turnOnAdv = TRUE;
     // Turn on advertising while in a connection
     GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv );
@@ -718,28 +719,38 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     
   case GAPROLE_CONNECTED:
     { 
-      debugPrintLine("Connected");
+      debugPrintLine("GAPROLE_CONNECTED");
              
       
       // Only turn advertising on for this state when we first connect
       // otherwise, when we go from connected_advertising back to this state
       // we will be turning advertising back on.
-      
-            
+
+      uint8 turnOnAdv = TRUE;
+      // Turn on advertising while in a connection
+      GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv );      
     }
     break;
     
-    /*case GAPROLE_CONNECTED_ADV:
+    case GAPROLE_CONNECTED_ADV:
     {
-  }
-    break;*/      
+      debugPrintLine("GAPROLE_CONNECTED_ADV");
+      uint8 stat = getStatus_();
+      debugPrintRaw(&stat);
+    }
+    break;      
   case GAPROLE_WAITING:
     {
+      debugPrintLine("GAPROLE_WAITING");
+      uint8 turnOnAdv = TRUE;
+      // Turn on advertising while in a connection
+      GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv ); 
     }
     break;
     
   case GAPROLE_WAITING_AFTER_TIMEOUT:
     {
+      debugPrintLine("GAPROLE_WAITING_AFTER_TIMEOUT");
       // Reset flag for next connection.
       first_conn_flag = 0;
     }
@@ -854,9 +865,10 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 */
 static void performPeriodicTask( void )
 {
-  debugPrintLine("Starting search...");
+  /*debugPrintLine("Starting search...");
   uint8 stat = getStatus_();
   debugPrintRaw(&stat);
+  */
   bStatus_t ret = GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
                                                  DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                                  DEFAULT_DISCOVERY_WHITE_LIST );
@@ -881,6 +893,7 @@ static void txrxServiceChangeCB( uint8 paramID )
   
   if (paramID == TXRX_RX_DATA_READY)
   {
+    debugPrintLine("Sending UART data");
     TXRX_GetParameter(RX_DATA_CHAR, &len, data);
     HalUARTWrite(NPI_UART_PORT, (uint8*)data, len);
   }
