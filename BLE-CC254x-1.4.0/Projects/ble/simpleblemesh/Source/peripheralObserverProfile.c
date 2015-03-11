@@ -995,7 +995,8 @@ static void gapRole_ProcessGAPMsg( gapEventHdr_t *pMsg )
           pPkt->hdr.status = GAP_UpdateAdvertisingData( gapRole_TaskID,
                                                        FALSE, gapRole_ScanRspDataLen, gapRole_ScanRspData );
         }
-        else
+        else if (gapRole_state != GAPROLE_ADVERTISING && gapRole_state != GAPROLE_CONNECTED_ADV &&
+                    osal_get_timeoutEx(gapRole_TaskID, START_ADVERTISING_EVT) == 0)
         {
           // Start advertising
           VOID osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
@@ -1252,8 +1253,6 @@ static void gapRole_SetupGAP( void )
                                gapRole_profileRole, gapObserverRoleMaxScanRes,
                                gapRole_IRK, gapRole_SRK,
                                &gapRole_signCounter );
-  
-  gapStatus__ = (uint8) s;
 }
 
 /*********************************************************************
