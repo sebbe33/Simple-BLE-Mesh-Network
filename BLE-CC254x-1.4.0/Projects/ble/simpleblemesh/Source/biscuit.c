@@ -69,7 +69,7 @@ SOFTWARE.
 #define SBP_PERIODIC_EVT_PERIOD                   11000
 
 // What is the advertising interval when device is discoverable (units of 625us, 160=100ms)
-#define DEFAULT_ADVERTISING_INTERVAL          160
+#define DEFAULT_ADVERTISING_INTERVAL          100
 
 // Limited discoverable mode advertises for 30.72s, and then stops
 // General discoverable mode advertises indefinitely
@@ -196,7 +196,10 @@ static gapDevRec_t simpleBLEDevList[DEFAULT_MAX_SCAN_RES];
 
 // Scanning state
 static uint8 simpleBLEScanning = FALSE;
-
+static uint8 infoEvent = 0; 
+static uint8 discoveryEvent = 0;
+static uint32 timeReceived = 0;
+static uint32 timeHandled = 0;
 /*********************************************************************
 * LOCAL FUNCTIONS
 */
@@ -271,7 +274,7 @@ void Biscuit_Init( uint8 task_id )
   // Setup the GAP Peripheral Role Profile
   {
     // Device starts advertising upon initialization
-    uint8 initial_advertising_enable = TRUE;
+    uint8 initial_advertising_enable = FALSE;
     
     // By setting this to zero, the device will go into the waiting state after
     // being discoverable for 30.72 second, and will not being advertising again
@@ -550,7 +553,6 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
   
   if ( events & SBP_ADV_IN_CONNECTION_EVT )
   {
-    debugPrintLine("hejsan123");
     uint8 turnOnAdv = TRUE;
     // Turn on advertising while in a connection
     GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv );
@@ -708,11 +710,14 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     
   case GAPROLE_ADVERTISING:
     {
-      debugPrintLine("Started advertising");
+      if(infoEvent == 1) {
+        infoEvent = 2;
+        
+        timeHandled = osal_GetSystemClock(); 
+      }
+      /*debugPrintLine("Started advertising");
       uint8 stat = getStatus_();
-      debugPrintRaw(&stat);
-      
-      
+      debugPrintRaw(&stat);*/
       
     }
     break;
@@ -735,8 +740,6 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     case GAPROLE_CONNECTED_ADV:
     {
       debugPrintLine("GAPROLE_CONNECTED_ADV");
-      uint8 stat = getStatus_();
-      debugPrintRaw(&stat);
     }
     break;      
   case GAPROLE_WAITING:
@@ -744,7 +747,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
       debugPrintLine("GAPROLE_WAITING");
       uint8 turnOnAdv = TRUE;
       // Turn on advertising while in a connection
-      GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv ); 
+      //GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv ); 
     }
     break;
     
@@ -781,49 +784,49 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
 *
 * @return  none
 */
+
 static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 {
-  
-  debugPrintRaw(&pEvent->gap.opcode);
   switch ( pEvent->gap.opcode )
   {
   case GAP_DEVICE_INIT_DONE_EVENT:  
     {
       //LCD_WRITE_STRING( "BLE Observer", HAL_LCD_LINE_1 );
       //LCD_WRITE_STRING( bdAddr2Str( pEvent->initDone.devAddr ),  HAL_LCD_LINE_2 );
+      debugPrintLine("GAP_DEVICE_INIT_DONE_EVENT");
     }
     break;
     
   case GAP_DEVICE_INFO_EVENT:
     {
+      
       //simpleBLEAddDeviceInfo( pEvent->deviceInfo.addr, pEvent->deviceInfo.addrType );
-      debugPrintLine("ehmarine");
       uint8* data = pEvent->deviceInfo.pEvtData;
       uint8  dataLen = pEvent->deviceInfo.dataLen;
-      data[0] = 3;
-      data[1] = 1;
       
       
       
-      
-      if(data[3] == 0x1A){
-        osal_memcpy(&advertData[5], data, dataLen-5);
+      if(infoEvent == 0 && data[3] == 0x1A){
+        timeReceived =  osal_GetSystemClock(); 
+        GAPObserverRole_StopDiscovery();
+        infoEvent = 1;
+        
+        //osal_memcpy(&advertData[5], data, dataLen-5);
+        advertData[5] = 0;
+        advertData[6] = 0;
         GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( advertData ), advertData );
-        //uint8 initial_advertising_enable = TRUE;
-        //GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &initial_advertising_enable );
+        uint8 initial_advertising_enable = TRUE;
+        GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &initial_advertising_enable );
         
       }
-      
-      
-      
-      
     }
     break;
     
   case GAP_DEVICE_DISCOVERY_EVENT:
     {
+      discoveryEvent++;
       // discovery complete
-      simpleBLEScanning = FALSE;
+      /*simpleBLEScanning = FALSE;
       
       // Copy results
       simpleBLEScanRes = pEvent->discCmpl.numDevs;
@@ -865,10 +868,12 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 */
 static void performPeriodicTask( void )
 {
-  /*debugPrintLine("Starting search...");
+  debugPrintLine("Status:");
   uint8 stat = getStatus_();
   debugPrintRaw(&stat);
-  */
+  debugPrintLine("Time between:");
+  uint32 t = timeHandled - timeReceived;
+  debugPrintRawArray((uint8*) &t, 4);
   bStatus_t ret = GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
                                                  DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                                  DEFAULT_DISCOVERY_WHITE_LIST );
@@ -893,7 +898,6 @@ static void txrxServiceChangeCB( uint8 paramID )
   
   if (paramID == TXRX_RX_DATA_READY)
   {
-    debugPrintLine("Sending UART data");
     TXRX_GetParameter(RX_DATA_CHAR, &len, data);
     HalUARTWrite(NPI_UART_PORT, (uint8*)data, len);
   }

@@ -1392,3 +1392,9 @@ bStatus_t GAPObserverRole_StartDiscovery( uint8 mode, uint8 activeScan, uint8 wh
   
   return GAP_DeviceDiscoveryRequest( &params );
 }
+
+bStatus_t GAPObserverRole_StopDiscovery()
+{
+  return GAP_DeviceDiscoveryCancel(gapRole_TaskID);
+}
+
