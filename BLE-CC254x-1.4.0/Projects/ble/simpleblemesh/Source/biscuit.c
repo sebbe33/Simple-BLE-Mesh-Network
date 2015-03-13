@@ -66,7 +66,7 @@ SOFTWARE.
 */
 
 // How often to perform periodic event
-#define SBP_PERIODIC_EVT_PERIOD                   11000
+#define SBP_PERIODIC_EVT_PERIOD                   6000
 
 // What is the advertising interval when device is discoverable (units of 625us, 160=100ms)
 #define DEFAULT_ADVERTISING_INTERVAL          100
@@ -81,19 +81,19 @@ SOFTWARE.
 #endif  // defined ( CC2540_MINIDK )
 
 // Minimum connection interval (units of 1.25ms, 80=100ms) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_MIN_CONN_INTERVAL     80
+#define DEFAULT_DESIRED_MIN_CONN_INTERVAL     200
 
 // Maximum connection interval (units of 1.25ms, 800=1000ms) if automatic parameter update request is enabled
 #define DEFAULT_DESIRED_MAX_CONN_INTERVAL     800
 
 // Slave latency to use if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_SLAVE_LATENCY         0
+#define DEFAULT_DESIRED_SLAVE_LATENCY         1
 
 // Supervision timeout value (units of 10ms, 1000=10s) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_CONN_TIMEOUT          1000
+#define DEFAULT_DESIRED_CONN_TIMEOUT          2000
 
 // Whether to enable automatic parameter update request when a connection is formed
-#define DEFAULT_ENABLE_UPDATE_REQUEST         FALSE;
+#define DEFAULT_ENABLE_UPDATE_REQUEST         TRUE
 
 // Connection Pause Peripheral time value (in seconds)
 #define DEFAULT_CONN_PAUSE_PERIPHERAL         6
@@ -106,7 +106,7 @@ SOFTWARE.
 #define MAX_RX_LEN                            128
 #define SBP_RX_TIME_OUT                       5
 
-#define DEFAULT_SCAN_DURATION                 10000
+#define DEFAULT_SCAN_DURATION                 100
 
 // Discovey mode (limited, general, all)
 #define DEFAULT_DISCOVERY_MODE                DEVDISC_MODE_ALL
@@ -274,7 +274,7 @@ void Biscuit_Init( uint8 task_id )
   // Setup the GAP Peripheral Role Profile
   {
     // Device starts advertising upon initialization
-    uint8 initial_advertising_enable = FALSE;
+    uint8 initial_advertising_enable = TRUE;
     
     // By setting this to zero, the device will go into the waiting state after
     // being discoverable for 30.72 second, and will not being advertising again
@@ -731,7 +731,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
       // otherwise, when we go from connected_advertising back to this state
       // we will be turning advertising back on.
 
-      uint8 turnOnAdv = TRUE;
+      uint8 turnOnAdv = FALSE;
       // Turn on advertising while in a connection
       GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv );      
     }
@@ -803,20 +803,20 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
       //simpleBLEAddDeviceInfo( pEvent->deviceInfo.addr, pEvent->deviceInfo.addrType );
       uint8* data = pEvent->deviceInfo.pEvtData;
       uint8  dataLen = pEvent->deviceInfo.dataLen;
+      //debugPrintLine("Device found");
       
-      
-      
-      if(infoEvent == 0 && data[3] == 0x1A){
-        timeReceived =  osal_GetSystemClock(); 
+      if(data[3] == 0x1A){
+        //debugPrintLine("Mac found");
+        //timeReceived =  osal_GetSystemClock(); 
         GAPObserverRole_StopDiscovery();
-        infoEvent = 1;
+        infoEvent++;
         
         //osal_memcpy(&advertData[5], data, dataLen-5);
         advertData[5] = 0;
         advertData[6] = 0;
-        GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( advertData ), advertData );
+        /*GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( advertData ), advertData );
         uint8 initial_advertising_enable = TRUE;
-        GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &initial_advertising_enable );
+        GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &initial_advertising_enable );*/
         
       }
     }
@@ -825,6 +825,9 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
   case GAP_DEVICE_DISCOVERY_EVENT:
     {
       discoveryEvent++;
+      GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
+                                                 DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                                 DEFAULT_DISCOVERY_WHITE_LIST );
       // discovery complete
       /*simpleBLEScanning = FALSE;
       
@@ -868,12 +871,20 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 */
 static void performPeriodicTask( void )
 {
-  debugPrintLine("Status:");
-  uint8 stat = getStatus_();
-  debugPrintRaw(&stat);
-  debugPrintLine("Time between:");
-  uint32 t = timeHandled - timeReceived;
-  debugPrintRawArray((uint8*) &t, 4);
+  debugPrintLine("Found mac in:");
+  //uint8 stat = getStatus_();
+  debugPrintRaw(&infoEvent);
+  debugPrintLine("out of:");
+  debugPrintRaw(&discoveryEvent);
+  infoEvent = 0;
+  discoveryEvent = 0;
+  debugPrintLine("Connection interval: ");
+  uint8 data;
+  GAPRole_GetParameter(GAPROLE_CONN_INTERVAL, &data);
+  debugPrintRaw(&data);
+  //debugPrintLine("Time between:");
+  //uint32 t = timeHandled - timeReceived;
+  //debugPrintRawArray((uint8*) &t, 4);
   bStatus_t ret = GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
                                                  DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                                  DEFAULT_DISCOVERY_WHITE_LIST );
