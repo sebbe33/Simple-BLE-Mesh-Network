@@ -26,6 +26,7 @@ typedef struct
    uint16 networkIdentifier;
    uint8 length : 5;
    MessageType type : 3;
+   uint16 sequenceID;
    uint16 destination;
    uint16 source;
 } MessageHeader;
@@ -35,7 +36,7 @@ void initializeMeshConnectionProtocol(uint24 networkIdentifier,
 	advertiseDataFunction dataFunction, 
 	onMessageRecieved messageCallback);
 
-void processIncomingMessage(uint8* message, unit8 length);
+void processIncomingMessage(uint8* data, unit8 length);
 
 void broadcastMessage(uint8* message, uint8 length);
 
