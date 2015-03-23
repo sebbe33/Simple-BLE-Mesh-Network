@@ -5,9 +5,9 @@
 extern "C" {
 #endif
 
-#define TEST
+#define TEST_FLAG
 
-#ifdef TEST
+#ifdef TEST_FLAG
     #include <time.h>
     typedef unsigned char uint8;
     typedef unsigned short uint16;

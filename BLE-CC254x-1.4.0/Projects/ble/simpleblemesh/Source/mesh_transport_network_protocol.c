@@ -184,7 +184,7 @@ void insertProccesedMessage(MessageHeader* messageHeader)
     
     proccessedMessages[processedMessageEndIndex].sequenceID = messageHeader->sequenceID;
     proccessedMessages[processedMessageEndIndex].source = messageHeader->source;
-#ifdef TEST
+#ifdef TEST_FLAG
     proccessedMessages[processedMessageEndIndex].time = (uint16) time(NULL);
 #else
      //proccessedMessages[processedMessageEndIndex].time = osal_GetSystemClock();
