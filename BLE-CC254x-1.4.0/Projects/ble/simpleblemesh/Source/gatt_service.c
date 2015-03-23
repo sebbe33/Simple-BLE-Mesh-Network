@@ -76,6 +76,12 @@ CONST uint8 JoinGroupUUID[ATT_UUID_SIZE] =
   JOIN_GROUP_UUID
 };
 
+// Leave group Char UUID: 0x0005
+CONST uint8 LeaveGroupUUID[ATT_UUID_SIZE] =
+{ 
+  LEAVE_GROUP_UUID
+};
+
 // Device name Char UUID: 0x0005
 CONST uint8 DevNameCharUUID[ATT_UUID_SIZE] =
 { 
@@ -148,47 +154,54 @@ static uint8 txrxServiceChar3UserDesp[17] = "Characteristic 3\0";
 // Characteristic 4 Properties
 static uint8 txrxServiceChar4Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
+//TODO: consider #groups a node cane be part of
 // Characteristic 4 Value
-static uint8 Baudrate = 0;
+static uint16 GroupID[20] = null;
 
 // Characteristic 4 User Description
-static uint8 txrxServiceChar4UserDesp[17] = "Characteristic 4\0";
-
+static uint8 txrxServiceChar4UserDesp[17] = "Join Group";
 
 // Characteristic 5 Properties
 static uint8 txrxServiceChar5Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
-// Characteristic 5 Value
-static uint8 DevName[20] = "Biscuit 2";
-
-// Characteristic 5 Length
-static uint8 DevNameLen = 9;
-
 // Characteristic 5 User Description
-static uint8 txrxServiceChar5UserDesp[17] = "Characteristic 5\0";
+static uint8 txrxServiceChar5UserDesp[17] = "Leave Group";
 
 
 // Characteristic 6 Properties
-static uint8 txrxServiceChar6Props = GATT_PROP_READ;
+static uint8 txrxServiceChar6Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
 // Characteristic 6 Value
-static uint8 Version[12] = "Biscuit_2.0";
+static uint8 DevName[20] = "Biscuit 2";
 
 // Characteristic 6 Length
-static uint8 VersionLen = 11;
+static uint8 DevNameLen = 9;
 
 // Characteristic 6 User Description
-static uint8 txrxServiceChar6UserDesp[17] = "Characteristic 6\0";
+static uint8 txrxServiceChar6UserDesp[17] = "Characteristic 5\0";
 
 
 // Characteristic 7 Properties
-static uint8 txrxServiceChar7Props = GATT_PROP_WRITE | GATT_PROP_READ;
+static uint8 txrxServiceChar7Props = GATT_PROP_READ;
 
 // Characteristic 7 Value
-static uint8 TxPower = 2;
+static uint8 Version[12] = "Biscuit_2.0";
+
+// Characteristic 7 Length
+static uint8 VersionLen = 11;
 
 // Characteristic 7 User Description
-static uint8 txrxServiceChar7UserDesp[17] = "Characteristic 7\0";
+static uint8 txrxServiceChar7UserDesp[17] = "Characteristic 6\0";
+
+
+// Characteristic 8 Properties
+static uint8 txrxServiceChar8Props = GATT_PROP_WRITE | GATT_PROP_READ;
+
+// Characteristic 8 Value
+static uint8 TxPower = 2;
+
+// Characteristic 8 User Description
+static uint8 txrxServiceChar8UserDesp[17] = "Characteristic 7\0";
 
 /*********************************************************************
  * Profile Attributes - Table
@@ -214,7 +227,7 @@ static gattAttribute_t txrxAttrTbl[] =
 
       // Characteristic Value 2
       { 
-        { ATT_UUID_SIZE, txDataCharUUID },
+        { ATT_UUID_SIZE, txMessageUUID },
         GATT_PERMIT_READ, 
         0, 
         txDataChar 
@@ -246,7 +259,7 @@ static gattAttribute_t txrxAttrTbl[] =
 
       // Characteristic Value 3
       { 
-        { ATT_UUID_SIZE, rxDataCharUUID },
+        { ATT_UUID_SIZE, rxMessageUUID },
         GATT_PERMIT_WRITE, 
         0, 
         rxDataChar 
@@ -270,10 +283,10 @@ static gattAttribute_t txrxAttrTbl[] =
 
       // Characteristic Value 4
       { 
-        { ATT_UUID_SIZE, BaudrateCharUUID },
+        { ATT_UUID_SIZE, JoinGroupUUID },
         GATT_PERMIT_WRITE | GATT_PERMIT_READ, 
         0, 
-        &Baudrate 
+        &GroupID 
       },
 
       // Characteristic 4 User Description
@@ -283,8 +296,8 @@ static gattAttribute_t txrxAttrTbl[] =
         0, 
         txrxServiceChar4UserDesp 
       },
-      
-    // Characteristic 5 Declaration
+	  
+	  // Characteristic 5 Declaration
     { 
       { ATT_BT_UUID_SIZE, characterUUID },
       GATT_PERMIT_READ, 
@@ -294,10 +307,10 @@ static gattAttribute_t txrxAttrTbl[] =
 
       // Characteristic Value 5
       { 
-        { ATT_UUID_SIZE, DevNameCharUUID },
+        { ATT_UUID_SIZE, LeaveGroupUUID },
         GATT_PERMIT_WRITE | GATT_PERMIT_READ, 
         0, 
-        DevName 
+        &GroupID 
       },
 
       // Characteristic 5 User Description
@@ -313,15 +326,15 @@ static gattAttribute_t txrxAttrTbl[] =
       { ATT_BT_UUID_SIZE, characterUUID },
       GATT_PERMIT_READ, 
       0,
-      &txrxServiceChar6Props 
+      &txrxServiceChar5Props 
     },
 
       // Characteristic Value 6
       { 
-        { ATT_UUID_SIZE, VersionCharUUID },
-        GATT_PERMIT_READ, 
+        { ATT_UUID_SIZE, DevNameCharUUID },
+        GATT_PERMIT_WRITE | GATT_PERMIT_READ, 
         0, 
-        Version 
+        DevName 
       },
 
       // Characteristic 6 User Description
@@ -332,7 +345,7 @@ static gattAttribute_t txrxAttrTbl[] =
         txrxServiceChar6UserDesp 
       },
       
-      // Characteristic 7 Declaration
+    // Characteristic 7 Declaration
     { 
       { ATT_BT_UUID_SIZE, characterUUID },
       GATT_PERMIT_READ, 
@@ -342,10 +355,10 @@ static gattAttribute_t txrxAttrTbl[] =
 
       // Characteristic Value 7
       { 
-        { ATT_UUID_SIZE, TxPowerCharUUID },
-        GATT_PERMIT_WRITE | GATT_PERMIT_READ, 
+        { ATT_UUID_SIZE, VersionCharUUID },
+        GATT_PERMIT_READ, 
         0, 
-        &TxPower 
+        Version 
       },
 
       // Characteristic 7 User Description
@@ -354,6 +367,30 @@ static gattAttribute_t txrxAttrTbl[] =
         GATT_PERMIT_READ, 
         0, 
         txrxServiceChar7UserDesp 
+      },
+      
+      // Characteristic 8 Declaration
+    { 
+      { ATT_BT_UUID_SIZE, characterUUID },
+      GATT_PERMIT_READ, 
+      0,
+      &txrxServiceChar8Props 
+    },
+
+      // Characteristic Value 8
+      { 
+        { ATT_UUID_SIZE, TxPowerCharUUID },
+        GATT_PERMIT_WRITE | GATT_PERMIT_READ, 
+        0, 
+        &TxPower 
+      },
+
+      // Characteristic 8 User Description
+      { 
+        { ATT_BT_UUID_SIZE, charUserDescUUID },
+        GATT_PERMIT_READ, 
+        0, 
+        txrxServiceChar8UserDesp 
       },
 };
 
@@ -462,7 +499,7 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
   
   switch ( param )
   {
-    case TX_DATA_CHAR:
+    case TX_MESSAGE_CHAR:
       if ( len <= 20 ) 
       {
         VOID osal_memcpy( txDataChar, value, len );
@@ -478,7 +515,7 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
       }
       break;
 
-    case RX_DATA_CHAR:
+    case RX_MESSAGE_CHAR:
       if ( len == sizeof ( uint8 ) ) 
       {
         VOID osal_memcpy( rxDataChar, value, len );
@@ -490,9 +527,22 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
       }
       break;
       
-    case BAUDRATE_CHAR:
+    case JOIN_GROUP_CHAR:
       if ( len == 1 ) 
       {
+		  //TODO: Add group to list of groups
+        VOID osal_memcpy( &Baudrate, value, len );
+      }
+      else
+      {
+        ret = bleInvalidRange;
+      }
+      break;
+	  
+	  case LEAVE_GROUP_CHAR:
+      if ( len == 1 ) 
+      {
+		  //TODO: Remove group to list of groups
         VOID osal_memcpy( &Baudrate, value, len );
       }
       else
@@ -558,20 +608,27 @@ bStatus_t TXRX_GetParameter( uint8 param, uint8 *len, void *value )
   
   switch ( param )
   {
-    case TX_DATA_CHAR:
+    case TX_MESSAGE_CHAR:
       len[0] = txDataLen;
       VOID osal_memcpy(value, txDataChar, txDataLen);
       break;      
 
-    case RX_DATA_CHAR:
+    case RX_MESSAGE_CHAR:
       len[0] = rxDataLen;
       VOID osal_memcpy(value, rxDataChar, rxDataLen);
       break; 
 
-    case BAUDRATE_CHAR:
+    case JOIN_GROUP_CHAR:
+	//TODO:return list of groups
       VOID osal_memcpy(value, &Baudrate, 1);
       break;
-      
+	  
+	  /*case JOIN_GROUP_CHAR:
+	//TODO:return list of groups
+      VOID osal_memcpy(value, &Baudrate, 1);
+      break;
+      */
+	  
     case DEV_NAME_CHAR:
       *len = DevNameLen;
       VOID osal_memcpy(value, DevName, DevNameLen);
@@ -628,16 +685,17 @@ static uint8 txrx_ReadAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
  
   if ( pAttr->type.len == ATT_UUID_SIZE )
   {
-    if ( osal_memcmp(pAttr->type.uuid, txDataCharUUID, ATT_UUID_SIZE) )
+    if ( osal_memcmp(pAttr->type.uuid, txMessageUUID, ATT_UUID_SIZE) )
     {
       *pLen = txDataLen;
       VOID osal_memcpy( pValue, pAttr->pValue, txDataLen );     
     }
-    else if ( osal_memcmp(pAttr->type.uuid, BaudrateCharUUID, ATT_UUID_SIZE) )
+    else if ( osal_memcmp(pAttr->type.uuid, JoinGroupUUID, ATT_UUID_SIZE) )
     {
-      //*pLen = 1;
-      //VOID osal_memcpy( pValue, pAttr->pValue, 1 );
-      switch(Baudrate)
+	//TODO: either add to list of copy group to add in app
+      *pLen = 2;
+      VOID osal_memcpy( pValue, pAttr->pValue, 2 );
+      /*switch(Baudrate)
       {
         case 0:   //9600
         {
@@ -681,8 +739,14 @@ static uint8 txrx_ReadAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
         
         default:
           break;
-      }
+      }*/
     }
+	else if ( osal_memcmp(pAttr->type.uuid, LeaveGroupUUID, ATT_UUID_SIZE) )
+    {
+	//TODO: either remove from list or return group to remove in app
+      *pLen = 2;
+      VOID osal_memcpy( pValue, pAttr->pValue, 2 );
+	}
     else if ( osal_memcmp(pAttr->type.uuid, DevNameCharUUID, ATT_UUID_SIZE) )
     {
       *pLen = DevNameLen;
@@ -849,11 +913,42 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
         
       //Write the value
       if ( status == SUCCESS )
-      {                
+      {       
+		//TODO: implement
         uint8 *pCurValue = (uint8 *)pAttr->pValue;
         osal_memcpy(pCurValue, pValue, len);
         
         notifyApp = JOIN_GROUP_SET;           
+      }
+    }
+	else if ( osal_memcmp(pAttr->type.uuid, LeaveGroupUUID, ATT_UUID_SIZE) )
+    {
+      //Validate the value
+      // Make sure it's not a blob oper
+      if ( offset == 0 )
+      {
+        if ( len != 1 )
+        {
+          status = ATT_ERR_INVALID_VALUE_SIZE;
+        }
+      }
+      else
+      {
+        status = ATT_ERR_ATTR_NOT_LONG;
+      }
+      if(*pValue > 4)
+      {
+        status = ATT_ERR_INVALID_VALUE;
+      }
+        
+      //Write the value
+      if ( status == SUCCESS )
+      {                
+		//TODO: implement
+        uint8 *pCurValue = (uint8 *)pAttr->pValue;
+        osal_memcpy(pCurValue, pValue, len);
+        
+        notifyApp = LEAVE_GROUP_SET;           
       }
     }
     else if ( osal_memcmp(pAttr->type.uuid, DevNameCharUUID, ATT_UUID_SIZE) )
