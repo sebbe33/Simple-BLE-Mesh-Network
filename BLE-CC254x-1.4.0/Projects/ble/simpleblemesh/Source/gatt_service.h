@@ -46,6 +46,11 @@ extern "C"
 #define LEAVE_GROUP_CHAR				4
 #define DEV_NAME_CHAR                   5  
 #define NETWORK_CHAR					6
+
+#define GROUP_ID_LENGTH					2
+#define NETWORK_ID_LENGTH				3
+#define MESSAGE_MAX_LENGTH				26
+#define DEV_NAME_MAX_LENGTH				20
   
   
 // TXRX Profile Service UUID                  0x713d-0000-503e4c75ba943148f18d941e     

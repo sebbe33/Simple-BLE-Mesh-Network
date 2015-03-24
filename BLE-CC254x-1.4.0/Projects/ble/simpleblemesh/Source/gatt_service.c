@@ -122,7 +122,7 @@ static CONST gattAttrType_t txrxService = { ATT_UUID_SIZE, txrxServUUID };
 static uint8 txrxServiceChar2Props = GATT_PROP_NOTIFY;
 
 // Characteristic 2 Value
-static uint8 txDataChar[20] = {0};
+static uint8 txDataChar[MESSAGE_MAX_LENGTH] = {0};
 
 // Characteristic 2 Length
 static uint8 txDataLen = 0;
@@ -137,7 +137,7 @@ static uint8 txrxServiceChar2UserDesp[17] = "Characteristic 2\0";
 static uint8 txrxServiceChar3Props = GATT_PROP_WRITE_NO_RSP;
 
 // Characteristic 3 Value
-static uint8 rxDataChar[20] = {0};
+static uint8 rxDataChar[MESSAGE_MAX_LENGTH] = {0};
 
 // Characteristic 3 Length
 static uint8 rxDataLen = 0;
@@ -153,20 +153,20 @@ static uint8 txrxServiceChar4Props = GATT_PROP_WRITE | GATT_PROP_READ;
 static uint16 GroupID = 0;
 
 // Characteristic 4 User Description
-static uint8 txrxServiceChar4UserDesp[17] = "Join Group";
+static uint8 txrxServiceChar4UserDesp[10] = "Join Group";
 
 // Characteristic 5 Properties
 static uint8 txrxServiceChar5Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
 // Characteristic 5 User Description
-static uint8 txrxServiceChar5UserDesp[17] = "Leave Group";
+static uint8 txrxServiceChar5UserDesp[11] = "Leave Group";
 
 
 // Characteristic 6 Properties
 static uint8 txrxServiceChar6Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
 // Characteristic 6 Value
-static uint8 DevName[20] = "Biscuit 2";
+static uint8 DevName[DEV_NAME_MAX_LENGTH] = "Biscuit 2";
 
 // Characteristic 6 Length
 static uint8 DevNameLen = 9;
@@ -179,10 +179,10 @@ static uint8 txrxServiceChar6UserDesp[17] = "Characteristic 5\0";
 static uint8 txrxServiceChar7Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
 // Characteristic 7 Value
-static uint16 NetworkID = 0;
+static uint24 NetworkID = 0;
 
 // Characteristic 7 User Description
-static uint8 txrxServiceChar7UserDesp[17] = "NetworkID";
+static uint8 txrxServiceChar7UserDesp[9] = "NetworkID";
 
 
 /*********************************************************************
@@ -308,7 +308,7 @@ static gattAttribute_t txrxAttrTbl[] =
       { ATT_BT_UUID_SIZE, characterUUID },
       GATT_PERMIT_READ, 
       0,
-      &txrxServiceChar5Props 
+      &txrxServiceChar6Props 
     },
 
       // Characteristic Value 6
@@ -460,7 +460,7 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
   switch ( param )
   {
     case TX_MESSAGE_CHAR:
-      if ( len <= 20 ) 
+      if ( len <= MESSAGE_MAX_LENGTH ) 
       {
         VOID osal_memcpy( txDataChar, value, len );
         txDataLen = len;
@@ -475,7 +475,9 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
       }
       break;
 
+	  /*
     case RX_MESSAGE_CHAR:
+		//TODO: Why?????
       if ( len == sizeof ( uint8 ) ) 
       {
         VOID osal_memcpy( rxDataChar, value, len );
@@ -488,7 +490,7 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
       break;
       
     case JOIN_GROUP_CHAR:
-      if ( len == 1 ) 
+      if ( len == GROUP_ID_LENGTH ) 
       {
 		  //TODO: return group to join
         VOID osal_memcpy( &GroupID, value, len );
@@ -500,7 +502,7 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
       break;
 	  
 	  case LEAVE_GROUP_CHAR:
-      if ( len == 1 ) 
+      if ( len == GROUP_ID_LENGTH ) 
       {
 		  //TODO: return group to leave
         VOID osal_memcpy( &GroupID, value, len );
@@ -510,9 +512,9 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
         ret = bleInvalidRange;
       }
       break;
-      
+      */
     case DEV_NAME_CHAR:
-      if ( len <= 20 ) 
+      if ( len <= DEV_NAME_MAX_LENGTH ) 
       {
         VOID osal_memcpy( DevName, value, len );
         DevNameLen = len;
@@ -525,7 +527,7 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
       
     	  
    case NETWORK_CHAR:
-      if ( len == 1 ) 
+      if ( len == NETWORK_ID_LENGTH ) 
       {
 		 VOID osal_memcpy( &NetworkID, value, len );
       }
@@ -573,15 +575,12 @@ bStatus_t TXRX_GetParameter( uint8 param, uint8 *len, void *value )
       break; 
 
     case JOIN_GROUP_CHAR:
-	//TODO: correct??
-      VOID osal_memcpy(value, &GroupID, 1);
+      VOID osal_memcpy(value, &GroupID, GROUP_ID_LENGTH);
       break;
 	  
 	case LEAVE_GROUP_CHAR:
-	//TODO: correct??
-      VOID osal_memcpy(value, &GroupID, 1);
+      VOID osal_memcpy(value, &GroupID, GROUP_ID_LENGTH);
 		break;
-      */
 	  
     case DEV_NAME_CHAR:
       *len = DevNameLen;
@@ -590,7 +589,7 @@ bStatus_t TXRX_GetParameter( uint8 param, uint8 *len, void *value )
       
     
 	case NETWORK_CHAR:
-	  VOID osal_memcpy(value, &NetworkID, 1);
+	  VOID osal_memcpy(value, &NetworkID, NETWORK_ID_LENGTH);
       break;
 	        
     default:
@@ -642,16 +641,14 @@ static uint8 txrx_ReadAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
     }
     else if ( osal_memcmp(pAttr->type.uuid, JoinGroupUUID, ATT_UUID_SIZE) )
     {
-	//TODO: either add to list of copy group to add in app
-      *pLen = 2;
-      VOID osal_memcpy( pValue, pAttr->pValue, 2 );
+      *pLen = GROUP_ID_LENGTH;
+      VOID osal_memcpy( pValue, pAttr->pValue, GROUP_ID_LENGTH );
       
     }
 	else if ( osal_memcmp(pAttr->type.uuid, LeaveGroupUUID, ATT_UUID_SIZE) )
     {
-	//TODO: fix length
-      *pLen = 2;
-      VOID osal_memcpy( pValue, pAttr->pValue, 2 );
+      *pLen = GROUP_ID_LENGTH;
+      VOID osal_memcpy( pValue, pAttr->pValue, GROUP_ID_LENGTH );
 	}
     else if ( osal_memcmp(pAttr->type.uuid, DevNameCharUUID, ATT_UUID_SIZE) )
     {
@@ -661,9 +658,8 @@ static uint8 txrx_ReadAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
     
 	else if ( osal_memcmp(pAttr->type.uuid, NetworkUUID, ATT_UUID_SIZE) )
     {
-	//TODO: fix length
-      *pLen = 2;
-      VOID osal_memcpy( pValue, pAttr->pValue, 2 );
+		*pLen = NETWORK_ID_LENGTH;
+      VOID osal_memcpy( pValue, pAttr->pValue, NETWORK_ID_LENGTH );
 	}
 	
     else
@@ -737,7 +733,7 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
       // Make sure it's not a blob oper
       if ( offset == 0 )
       {
-        if ( len > 20 )
+        if ( len > MESSAGE_MAX_LENGTH )
         {
           status = ATT_ERR_INVALID_VALUE_SIZE;
         }
@@ -749,10 +745,7 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
         
       //Write the value
       if ( status == SUCCESS )
-      {                
-  
-		//TODO: Add check for validate the message type?
-		
+      {                		
         uint8 *pCurValue = (uint8 *)pAttr->pValue;
         osal_memcpy(pCurValue, pValue, len);
         rxDataLen = len;
@@ -766,7 +759,7 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
       // Make sure it's not a blob oper
       if ( offset == 0 )
       {
-        if ( len != 1 )
+        if ( len != GROUP_ID_LENGTH )
         {
           status = ATT_ERR_INVALID_VALUE_SIZE;
         }
@@ -775,16 +768,11 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
       {
         status = ATT_ERR_ATTR_NOT_LONG;
       }
-      if(*pValue > 4)
-      {
-        status = ATT_ERR_INVALID_VALUE;
-      }
-        
+             
       //Write the value
       if ( status == SUCCESS )
       {       
-		//TODO: implement
-        uint8 *pCurValue = (uint8 *)pAttr->pValue;
+		uint8 *pCurValue = (uint8 *)pAttr->pValue;
         osal_memcpy(pCurValue, pValue, len);
         
         notifyApp = JOIN_GROUP_SET;           
@@ -796,7 +784,7 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
       // Make sure it's not a blob oper
       if ( offset == 0 )
       {
-        if ( len != 1 )
+        if ( len != GROUP_ID_LENGTH )
         {
           status = ATT_ERR_INVALID_VALUE_SIZE;
         }
@@ -805,15 +793,11 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
       {
         status = ATT_ERR_ATTR_NOT_LONG;
       }
-      if(*pValue > 4)
-      {
-        status = ATT_ERR_INVALID_VALUE;
-      }
-        
+            
       //Write the value
       if ( status == SUCCESS )
       {                
-		//TODO: implement
+		
         uint8 *pCurValue = (uint8 *)pAttr->pValue;
         osal_memcpy(pCurValue, pValue, len);
         
@@ -826,7 +810,7 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
       // Make sure it's not a blob oper
       if ( offset == 0 )
       {
-        if ( len > 20 )
+        if ( len > DEV_NAME_MAX_LENGTH )
         {
           status = ATT_ERR_INVALID_VALUE_SIZE;
         }
@@ -853,7 +837,7 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
       // Make sure it's not a blob oper
       if ( offset == 0 )
       {
-        if ( len != 1 )
+        if ( len != NETWORK_ID_LENGTH )
         {
           status = ATT_ERR_INVALID_VALUE_SIZE;
         }
@@ -862,15 +846,13 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
       {
         status = ATT_ERR_ATTR_NOT_LONG;
       }
-      if(*pValue > 4)
-      {
-        status = ATT_ERR_INVALID_VALUE;
-      }
+      if(*pValue > 4) //TODO: remove?
+      
         
       //Write the value
       if ( status == SUCCESS )
       {       
-		//TODO: implement
+		
         uint8 *pCurValue = (uint8 *)pAttr->pValue;
         osal_memcpy(pCurValue, pValue, len);
         
