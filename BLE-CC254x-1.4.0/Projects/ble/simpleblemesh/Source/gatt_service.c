@@ -88,19 +88,8 @@ CONST uint8 DevNameCharUUID[ATT_UUID_SIZE] =
   DEV_NAME_CHAR_UUID
 };
 
-// Version Char UUID: 0x0007
-CONST uint8 VersionCharUUID[ATT_UUID_SIZE] =
-{ 
-  VERSION_CHAR_UUID
-};
 
-// Version Char UUID: 0x0008
-CONST uint8 TxPowerCharUUID[ATT_UUID_SIZE] =
-{ 
-  TX_POWER_CHAR_UUID
-};
-
-// Network Char UUID: 0x0009
+// Network Char UUID: 0x0007
 CONST uint8 NetworkUUID[ATT_UUID_SIZE] =
 { 
   NETWORK_UUID
@@ -187,35 +176,13 @@ static uint8 txrxServiceChar6UserDesp[17] = "Characteristic 5\0";
 
 
 // Characteristic 7 Properties
-static uint8 txrxServiceChar7Props = GATT_PROP_READ;
+static uint8 txrxServiceChar7Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
 // Characteristic 7 Value
-static uint8 Version[12] = "Biscuit_2.0";
-
-// Characteristic 7 Length
-static uint8 VersionLen = 11;
-
-// Characteristic 7 User Description
-static uint8 txrxServiceChar7UserDesp[17] = "Characteristic 6\0";
-
-
-// Characteristic 8 Properties
-static uint8 txrxServiceChar8Props = GATT_PROP_WRITE | GATT_PROP_READ;
-
-// Characteristic 8 Value
-static uint8 TxPower = 2;
-
-// Characteristic 8 User Description
-static uint8 txrxServiceChar8UserDesp[17] = "Characteristic 7\0";
-
-// Characteristic 9 Properties
-static uint8 txrxServiceChar9Props = GATT_PROP_WRITE | GATT_PROP_READ;
-
-// Characteristic 9 Value
 static uint16 NetworkID = 0;
 
-// Characteristic 9 User Description
-static uint8 txrxServiceChar9UserDesp[17] = "Network";
+// Characteristic 7 User Description
+static uint8 txrxServiceChar7UserDesp[17] = "NetworkID";
 
 
 /*********************************************************************
@@ -360,7 +327,9 @@ static gattAttribute_t txrxAttrTbl[] =
         txrxServiceChar6UserDesp 
       },
       
-    // Characteristic 7 Declaration
+    
+	  
+	 // Characteristic 7 Declaration
     { 
       { ATT_BT_UUID_SIZE, characterUUID },
       GATT_PERMIT_READ, 
@@ -370,10 +339,10 @@ static gattAttribute_t txrxAttrTbl[] =
 
       // Characteristic Value 7
       { 
-        { ATT_UUID_SIZE, VersionCharUUID },
-        GATT_PERMIT_READ, 
+        { ATT_UUID_SIZE, NetworkUUID },
+        GATT_PERMIT_WRITE | GATT_PERMIT_READ, 
         0, 
-        Version 
+        &NetworkID 
       },
 
       // Characteristic 7 User Description
@@ -382,54 +351,6 @@ static gattAttribute_t txrxAttrTbl[] =
         GATT_PERMIT_READ, 
         0, 
         txrxServiceChar7UserDesp 
-      },
-      
-      // Characteristic 8 Declaration
-    { 
-      { ATT_BT_UUID_SIZE, characterUUID },
-      GATT_PERMIT_READ, 
-      0,
-      &txrxServiceChar8Props 
-    },
-
-      // Characteristic Value 8
-      { 
-        { ATT_UUID_SIZE, TxPowerCharUUID },
-        GATT_PERMIT_WRITE | GATT_PERMIT_READ, 
-        0, 
-        &TxPower 
-      },
-
-      // Characteristic 8 User Description
-      { 
-        { ATT_BT_UUID_SIZE, charUserDescUUID },
-        GATT_PERMIT_READ, 
-        0, 
-        txrxServiceChar8UserDesp 
-      },
-	  
-	      // Characteristic 9 Declaration
-    { 
-      { ATT_BT_UUID_SIZE, characterUUID },
-      GATT_PERMIT_READ, 
-      0,
-      &txrxServiceChar9Props 
-    },
-
-      // Characteristic Value 9
-      { 
-        { ATT_UUID_SIZE, JoinNetworkUUID },
-        GATT_PERMIT_WRITE | GATT_PERMIT_READ, 
-        0, 
-        &NetworkID 
-      },
-
-      // Characteristic 9 User Description
-      { 
-        { ATT_BT_UUID_SIZE, charUserDescUUID },
-        GATT_PERMIT_READ, 
-        0, 
-        txrxServiceChar9UserDesp 
       },	  
 };
 
@@ -602,24 +523,7 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
       }
       break;
       
-    case VERSION_CHAR:
-      {
-        VOID osal_memcpy( Version, value, len );
-        VersionLen = len;
-      }
-      break;
-      
-    case TX_POWER_CHAR:
-      if ( len == 1 ) 
-      {
-        VOID osal_memcpy( &TxPower, value, len );
-      }
-      else
-      {
-        ret = bleInvalidRange;
-      }
-      break;
-	  
+    	  
    case NETWORK_CHAR:
       if ( len == 1 ) 
       {
@@ -684,15 +588,7 @@ bStatus_t TXRX_GetParameter( uint8 param, uint8 *len, void *value )
       VOID osal_memcpy(value, DevName, DevNameLen);
       break;
       
-    case VERSION_CHAR:
-      *len = VersionLen;
-      VOID osal_memcpy(value, Version, VersionLen);
-      break;
-      
-    case TX_POWER_CHAR:
-      VOID osal_memcpy(value, &TxPower, 1);
-      break;
-	  
+    
 	case NETWORK_CHAR:
 	  VOID osal_memcpy(value, &NetworkID, 1);
       break;
@@ -762,51 +658,7 @@ static uint8 txrx_ReadAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
       *pLen = DevNameLen;
       VOID osal_memcpy( pValue, pAttr->pValue, DevNameLen );     
     }
-    else if ( osal_memcmp(pAttr->type.uuid, VersionCharUUID, ATT_UUID_SIZE) )
-    {
-      *pLen = VersionLen;
-      VOID osal_memcpy( pValue, pAttr->pValue, VersionLen );     
-    }
-    else if ( osal_memcmp(pAttr->type.uuid, TxPowerCharUUID, ATT_UUID_SIZE) )
-    {
-      switch(TxPower)
-      {
-        case 0:   //-23dbm
-        {
-          *pLen = 7;
-          uint8 *str = "-23 dBm";
-          VOID osal_memcpy( pValue, str, 7 );
-          break;
-        }
-        
-        case 1:   //-6dbm
-        {
-          *pLen = 6;
-          uint8 *str = "-6 dBm";
-          VOID osal_memcpy( pValue, str, 6 );
-          break;
-        }
-         
-        case 2:   //0dbm
-        {
-          *pLen = 5;
-          uint8 *str = "0 dBm";
-          VOID osal_memcpy( pValue, str, 5 );
-          break;
-        }
-        
-        case 3:   //+4dbm
-        {
-          *pLen = 6;
-          uint8 *str = "+4 dBm";
-          VOID osal_memcpy( pValue, str, 6 );
-          break;
-        }
-        
-        default:
-          break;
-      }     
-    }
+    
 	else if ( osal_memcmp(pAttr->type.uuid, NetworkUUID, ATT_UUID_SIZE) )
     {
 	//TODO: fix length
@@ -994,35 +846,7 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
         notifyApp = DEV_NAME_CHANGED;           
       }
     }
-    else if ( osal_memcmp(pAttr->type.uuid, TxPowerCharUUID, ATT_UUID_SIZE) )
-    {
-      //Validate the value
-      // Make sure it's not a blob oper
-      if ( offset == 0 )
-      {
-        if ( len != 1 )
-        {
-          status = ATT_ERR_INVALID_VALUE_SIZE;
-        }
-      }
-      else
-      {
-        status = ATT_ERR_ATTR_NOT_LONG;
-      }
-      if(*pValue > 3)
-      {
-        status = ATT_ERR_INVALID_VALUE;
-      }
-        
-      //Write the value
-      if ( status == SUCCESS )
-      {                
-        uint8 *pCurValue = (uint8 *)pAttr->pValue;
-        osal_memcpy(pCurValue, pValue, len);
-        
-        notifyApp = TX_POWER_CHANGED;           
-      }
-    }
+    
 	else if ( osal_memcmp(pAttr->type.uuid, NetworkUUID, ATT_UUID_SIZE) )
     {
       //Validate the value
