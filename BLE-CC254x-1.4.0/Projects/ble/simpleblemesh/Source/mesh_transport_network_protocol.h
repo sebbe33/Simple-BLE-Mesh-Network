@@ -31,6 +31,7 @@ typedef enum
 
 typedef void (*advertiseDataFunction)(uint8* data, uint8 length);
 typedef void (*onMessageRecieved)(uint8* message, uint8 length);
+typedef uint32 (*getSystemTimestampFunction) ();
 
 typedef struct  
 {
@@ -46,18 +47,22 @@ typedef struct
 {
     uint16 source;
     uint8 sequenceID;
-    uint16 time;
+    uint32 time;
 } ProccessedMessageInformation;
 
 typedef struct 
 {
     uint16 destination;
     uint8 sequenceId;
+    uint8 length;
+    uint32 time;
+    uint8* message;
 } PendingACK;
 void initializeMeshConnectionProtocol(uint24 networkIdentifier, 
 	uint16 deviceIdentifier, 
 	advertiseDataFunction dataFunction, 
-	onMessageRecieved messageCallback);
+	onMessageRecieved messageCallback,
+    getSystemTimestampFunction timestampFunction);
 
 void processIncomingMessage(uint8* data, uint8 length);
 
@@ -69,9 +74,11 @@ void sendStatefulMessage(uint16 destination, uint8* message, uint8 length);
 
 void sendStatelessMessage(uint16 destination, uint8* message, uint8 length);
 
+uint8 joinGroup(uint16 groupId);
+
 void destructMeshConnectionProtocol();
 
-void clearSentMessages(uint32 timeStamp);
+void periodicTask();
 
 #ifdef	__cplusplus
 }

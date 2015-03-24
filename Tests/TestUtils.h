@@ -13,7 +13,10 @@
 class TNPTest : public testing::Test {
 public:  
     static int advertisingCalls, messageCallbacks;
-    static uint8 advertisingData[20][32];
+    static uint32 timestamp;
+    static uint8 advertisingData[20][32], messageData[20][23];
+    static const uint24 networkID = 0xFACB;
+    static const uint16 nodeId = 0xC89A;
     
     virtual void SetUp() {
         destructMeshConnectionProtocol();
@@ -21,6 +24,17 @@ public:
         messageCallbacks = 0;
     }
 
+    static uint32 getTimestamp() {
+        return timestamp;
+    }
+    
+    static void initializeProtocolWithDefaultParameters() {
+        initializeMeshConnectionProtocol(TNPTest::networkID, TNPTest::nodeId, 
+            &TNPTest::advertiseCallback, 
+            &TNPTest::messageCallback,
+            &TNPTest::getTimestamp);
+    }
+    
     static void advertiseCallback(uint8* data, uint8 length) {
         for(int i = 0; i < length; i++) {
             advertisingData[advertisingCalls][i] = data[i];
@@ -29,13 +43,16 @@ public:
     }
     
     static void messageCallback(uint8* message, uint8 length) {
-        TNPTest::messageCallbacks++;
+        for(int i = 0; i < length; i++) {
+            messageData[messageCallbacks][i] = message[i];
+        }
+        messageCallbacks++;
     }
     
-    static void validateHeaderData(uint24 networkID, uint16 nodeId, 
+    static void validateHeaderData(uint24 networkID, uint16 source, 
             uint16 destination, MessageType type, uint8 length, uint8* rawData) {
         MessageHeader* header = (MessageHeader*) rawData;
-        ASSERT_EQ(nodeId, header->source);
+        ASSERT_EQ(source, header->source);
         ASSERT_EQ(networkID, header->networkIdentifier);
         ASSERT_EQ(type, header->type);
         ASSERT_EQ(length, header->length);
@@ -49,11 +66,6 @@ public:
         }
     }
 };
-
-int TNPTest::advertisingCalls = 0, 
-        TNPTest::messageCallbacks = 0;
-uint8 TNPTest::advertisingData[20][32] = {0};
-
 
 #endif	/* TESTUTILS_H */
 
