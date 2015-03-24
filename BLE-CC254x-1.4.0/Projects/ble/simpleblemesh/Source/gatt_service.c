@@ -100,6 +100,12 @@ CONST uint8 TxPowerCharUUID[ATT_UUID_SIZE] =
   TX_POWER_CHAR_UUID
 };
 
+// Network Char UUID: 0x0009
+CONST uint8 NetworkUUID[ATT_UUID_SIZE] =
+{ 
+  NETWORK_UUID
+};
+
 /*********************************************************************
  * EXTERNAL VARIABLES
  */
@@ -209,16 +215,8 @@ static uint8 txrxServiceChar9Props = GATT_PROP_WRITE | GATT_PROP_READ;
 static uint16 NetworkID = 0;
 
 // Characteristic 9 User Description
-static uint8 txrxServiceChar9UserDesp[17] = "Join Network";
+static uint8 txrxServiceChar9UserDesp[17] = "Network";
 
-// Characteristic 10 Properties
-static uint8 txrxServiceChar10Props = GATT_PROP_WRITE | GATT_PROP_READ;
-
-// Characteristic 10 Value
-//static uint16 GroupID = 0;
-
-// Characteristic 10 User Description
-static uint8 txrxServiceChar10UserDesp[17] = "Leave Network";
 
 /*********************************************************************
  * Profile Attributes - Table
@@ -432,32 +430,7 @@ static gattAttribute_t txrxAttrTbl[] =
         GATT_PERMIT_READ, 
         0, 
         txrxServiceChar9UserDesp 
-      },
-	  
-	      // Characteristic 10 Declaration
-    { 
-      { ATT_BT_UUID_SIZE, characterUUID },
-      GATT_PERMIT_READ, 
-      0,
-      &txrxServiceChar10Props 
-    },
-
-      // Characteristic Value 10
-      { 
-        { ATT_UUID_SIZE, LeaveGroupUUID },
-        GATT_PERMIT_WRITE | GATT_PERMIT_READ, 
-        0, 
-        &NetworkID 
-      },
-
-      // Characteristic 10 User Description
-      { 
-        { ATT_BT_UUID_SIZE, charUserDescUUID },
-        GATT_PERMIT_READ, 
-        0, 
-        txrxServiceChar10UserDesp 
-      },
-	  
+      },	  
 };
 
 
@@ -596,7 +569,7 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
     case JOIN_GROUP_CHAR:
       if ( len == 1 ) 
       {
-		  //TODO: Add group to list of groups
+		  //TODO: return group to join
         VOID osal_memcpy( &GroupID, value, len );
       }
       else
@@ -608,7 +581,7 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
 	  case LEAVE_GROUP_CHAR:
       if ( len == 1 ) 
       {
-		  //TODO: Remove group to list of groups
+		  //TODO: return group to leave
         VOID osal_memcpy( &GroupID, value, len );
       }
       else
@@ -647,11 +620,10 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
       }
       break;
 	  
-   case JOIN_NETWORK_CHAR:
+   case NETWORK_CHAR:
       if ( len == 1 ) 
       {
-		  //TODO: Add group to list of groups
-        VOID osal_memcpy( &NetworkID, value, len );
+		 VOID osal_memcpy( &NetworkID, value, len );
       }
       else
       {
@@ -659,19 +631,7 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
       }
       break;
 	  
-	  case LEAVE_NETWORK_CHAR:
-      if ( len == 1 ) 
-      {
-		  //TODO: Remove group to list of groups
-        VOID osal_memcpy( &NetworkID, value, len );
-      }
-      else
-      {
-        ret = bleInvalidRange;
-      }
-      break;
-
-    default:
+	 default:
       ret = INVALIDPARAMETER;
       break;
   }
@@ -709,14 +669,14 @@ bStatus_t TXRX_GetParameter( uint8 param, uint8 *len, void *value )
       break; 
 
     case JOIN_GROUP_CHAR:
-	//TODO:return list of groups
+	//TODO: correct??
       VOID osal_memcpy(value, &GroupID, 1);
       break;
 	  
-	  /*case JOIN_GROUP_CHAR:
-	//TODO:return list of groups
-      VOID osal_memcpy(value, &Baudrate, 1);
-      break;
+	case LEAVE_GROUP_CHAR:
+	//TODO: correct??
+      VOID osal_memcpy(value, &GroupID, 1);
+		break;
       */
 	  
     case DEV_NAME_CHAR:
@@ -733,17 +693,10 @@ bStatus_t TXRX_GetParameter( uint8 param, uint8 *len, void *value )
       VOID osal_memcpy(value, &TxPower, 1);
       break;
 	  
-	case JOIN_NETWORK_CHAR:
-	//TODO:return list of groups
-      VOID osal_memcpy(value, &NetworkID, 1);
+	case NETWORK_CHAR:
+	  VOID osal_memcpy(value, &NetworkID, 1);
       break;
-	  
-	  /*case JOIN_NETWORK_CHAR:
-	//TODO:return list of groups
-      VOID osal_memcpy(value, &NetworkID, 1);
-      break;
-      */
-      
+	        
     default:
       ret = INVALIDPARAMETER;
       break;
@@ -796,55 +749,11 @@ static uint8 txrx_ReadAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
 	//TODO: either add to list of copy group to add in app
       *pLen = 2;
       VOID osal_memcpy( pValue, pAttr->pValue, 2 );
-      /*switch(Baudrate)
-      {
-        case 0:   //9600
-        {
-          *pLen = 9;
-          uint8 *str = "BAUD_9600";
-          VOID osal_memcpy( pValue, str, 9 );
-          break;
-        }
-        
-        case 1:   //19200
-        {
-          *pLen = 10;
-          uint8 *str = "BAUD_19200";
-          VOID osal_memcpy( pValue, str, 10 );
-          break;
-        }
-         
-        case 2:   //38400
-        {
-          *pLen = 10;
-          uint8 *str = "BAUD_38400";
-          VOID osal_memcpy( pValue, str, 10 );
-          break;
-        }
-        
-        case 3:   //57600
-        {
-          *pLen = 10;
-          uint8 *str = "BAUD_57600";
-          VOID osal_memcpy( pValue, str, 10 );
-          break;
-        }
-        
-        case 4:   //115200
-        {
-          *pLen = 11;
-          uint8 *str = "BAUD_115200";
-          VOID osal_memcpy( pValue, str, 11 );
-          break;
-        }
-        
-        default:
-          break;
-      }*/
+      
     }
 	else if ( osal_memcmp(pAttr->type.uuid, LeaveGroupUUID, ATT_UUID_SIZE) )
     {
-	//TODO: either remove from list or return group to remove in app
+	//TODO: fix length
       *pLen = 2;
       VOID osal_memcpy( pValue, pAttr->pValue, 2 );
 	}
@@ -898,18 +807,13 @@ static uint8 txrx_ReadAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
           break;
       }     
     }
-	else if ( osal_memcmp(pAttr->type.uuid, JoinNetworkUUID, ATT_UUID_SIZE) )
+	else if ( osal_memcmp(pAttr->type.uuid, NetworkUUID, ATT_UUID_SIZE) )
     {
-	//TODO: either add to list of copy group to add in app
+	//TODO: fix length
       *pLen = 2;
       VOID osal_memcpy( pValue, pAttr->pValue, 2 );
 	}
-	else if ( osal_memcmp(pAttr->type.uuid, LeaveNetworkUUID, ATT_UUID_SIZE) )
-    {
-	//TODO: either remove from list or return group to remove in app
-      *pLen = 2;
-      VOID osal_memcpy( pValue, pAttr->pValue, 2 );
-	}
+	
     else
     {
       // Should never get here!
@@ -1119,7 +1023,7 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
         notifyApp = TX_POWER_CHANGED;           
       }
     }
-	else if ( osal_memcmp(pAttr->type.uuid, JoinNetworkUUID, ATT_UUID_SIZE) )
+	else if ( osal_memcmp(pAttr->type.uuid, NetworkUUID, ATT_UUID_SIZE) )
     {
       //Validate the value
       // Make sure it's not a blob oper
@@ -1146,39 +1050,10 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
         uint8 *pCurValue = (uint8 *)pAttr->pValue;
         osal_memcpy(pCurValue, pValue, len);
         
-        notifyApp = JOIN_NETWORK_SET;           
+        notifyApp = NETWORK_SET;           
       }
     }
-	else if ( osal_memcmp(pAttr->type.uuid, LeaveNetworkUUID, ATT_UUID_SIZE) )
-    {
-      //Validate the value
-      // Make sure it's not a blob oper
-      if ( offset == 0 )
-      {
-        if ( len != 1 )
-        {
-          status = ATT_ERR_INVALID_VALUE_SIZE;
-        }
-      }
-      else
-      {
-        status = ATT_ERR_ATTR_NOT_LONG;
-      }
-      if(*pValue > 4)
-      {
-        status = ATT_ERR_INVALID_VALUE;
-      }
-        
-      //Write the value
-      if ( status == SUCCESS )
-      {                
-		//TODO: implement
-        uint8 *pCurValue = (uint8 *)pAttr->pValue;
-        osal_memcpy(pCurValue, pValue, len);
-        
-        notifyApp = LEAVE_NETWORK_SET;           
-      }
-    }
+	
     else
     {      
       // Should never get here! (characteristics 2 and 4 do not have write permissions)
