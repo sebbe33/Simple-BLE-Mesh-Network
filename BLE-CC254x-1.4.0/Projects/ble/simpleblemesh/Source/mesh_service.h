@@ -23,8 +23,8 @@
 
 */
 
-#ifndef TXRXSERVICE_H
-#define TXRXSERVICE_H
+#ifndef MESHSERVICE_H
+#define MESHSERVICE_H
 
 #ifdef __cplusplus
 extern "C"
@@ -53,8 +53,8 @@ extern "C"
 #define DEV_NAME_MAX_LENGTH				20
   
   
-// TXRX Profile Service UUID                  0x713d-0000-503e4c75ba943148f18d941e     
-#define TXRX_SERV_UUID                  0x1E,0x94,0x8D,0xF1,0x48,0x31,0x94,0xBA,0x75,0x4C,0x3E,0x50,0x00,0x00,0x3D,0x71
+// MESH Profile Service UUID                  0x713d-0000-503e4c75ba943148f18d941e     
+#define MESH_SERV_UUID                  0x1E,0x94,0x8D,0xF1,0x48,0x31,0x94,0xBA,0x75,0x4C,0x3E,0x50,0x00,0x00,0x3D,0x71
     
 // Char. UUID
 #define TX_MESSAGE_UUID               0x1E,0x94,0x8D,0xF1,0x48,0x31,0x94,0xBA,0x75,0x4C,0x3E,0x50,0x02,0x00,0x3D,0x71 // For transferring data
@@ -66,13 +66,13 @@ extern "C"
 #define NETWORK_UUID              0x1E,0x94,0x8D,0xF1,0x48,0x31,0x94,0xBA,0x75,0x4C,0x3E,0x50,0x07,0x00,0x3D,0x71 // For joining a network
 
       
-// TXRX Services bit fields                             
-#define TXRX_SERVICE                    0x00000001 
+// MESH Services bit fields                             
+#define MESH_SERVICE                    0x00000001 
 
 // Callback events
 #define MESSAGE_READY              		1   
-#define TXRX_RX_NOTI_ENABLED            2
-#define TXRX_RX_NOTI_DISABLED           3
+#define MESH_RX_NOTI_ENABLED            2
+#define MESH_RX_NOTI_DISABLED           3
 #define JOIN_GROUP_SET                  4
 #define LEAVE_GROUP_SET					5 
 #define DEV_NAME_CHANGED                6
@@ -83,8 +83,8 @@ extern "C"
  * TYPEDEFS
  */
 
-// TXRX Service callback function
-typedef void (*txrxServiceCB_t)(uint8 event);
+// MESH Service callback function
+typedef void (*meshServiceCB_t)(uint8 event);
 
 /*********************************************************************
  * MACROS
@@ -95,12 +95,12 @@ typedef void (*txrxServiceCB_t)(uint8 event);
  */
 
 // Callback when a characteristic value has changed
-typedef NULL_OK void (*txrxServiceChange_t)( uint8 paramID );
+typedef NULL_OK void (*meshServiceChange_t)( uint8 paramID );
 
 typedef struct
 {
-  txrxServiceChange_t        pfnTXRXServiceChange;  // Called when characteristic value changes
-} txrxServiceCBs_t;
+  meshServiceChange_t        pfnMESHServiceChange;  // Called when characteristic value changes
+} meshServiceCBs_t;
 
     
 
@@ -110,25 +110,25 @@ typedef struct
 
 
 /*
- * TXRX_AddService- Initializes the Simple GATT Profile service by registering
+ * MESH_AddService- Initializes the Simple GATT Profile service by registering
  *          GATT attributes with the GATT server.
  *
  * @param   services - services to add. This is a bit map and can
  *                     contain more than one service.
  */
 
-extern bStatus_t TXRX_AddService( uint32 services );
+extern bStatus_t MESH_AddService( uint32 services );
 
 /*
- * TXRX_RegisterAppCBs - Registers the application callback function.
+ * MESH_RegisterAppCBs - Registers the application callback function.
  *                    Only call this function once.
  *
  *    appCallbacks - pointer to application callbacks.
  */
-extern bStatus_t TXRX_RegisterAppCBs( txrxServiceCBs_t *appCallbacks );
+extern bStatus_t MESH_RegisterAppCBs( meshServiceCBs_t *appCallbacks );
 
 /*
- * TXRX_SetParameter - Set a Simple GATT Profile parameter.
+ * MESH_SetParameter - Set a Simple GATT Profile parameter.
  *
  *    param - Profile parameter ID
  *    len - length of data to right
@@ -137,10 +137,10 @@ extern bStatus_t TXRX_RegisterAppCBs( txrxServiceCBs_t *appCallbacks );
  *          data type (example: data type of uint16 will be cast to 
  *          uint16 pointer).
  */
-extern bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value );
+extern bStatus_t MESH_SetParameter( uint8 param, uint8 len, void *value );
   
 /*
- * TXRX_GetParameter - Get a Simple GATT Profile parameter.
+ * MESH_GetParameter - Get a Simple GATT Profile parameter.
  *
  *    param - Profile parameter ID
  *    value - pointer to data to write.  This is dependent on
@@ -148,7 +148,7 @@ extern bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value );
  *          data type (example: data type of uint16 will be cast to 
  *          uint16 pointer).
  */
-extern bStatus_t TXRX_GetParameter( uint8 param, uint8 *len, void *value );
+extern bStatus_t MESH_GetParameter( uint8 param, uint8 *len, void *value );
 
 
 /*********************************************************************
@@ -158,4 +158,4 @@ extern bStatus_t TXRX_GetParameter( uint8 param, uint8 *len, void *value );
 }
 #endif
 
-#endif /* TXRXSERVICE_H */
+#endif /* MESHSERVICE_H */

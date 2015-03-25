@@ -35,7 +35,7 @@
 #include "gattservapp.h"
 #include "gapbondmgr.h"
 
-#include "txrxservice.h"
+#include "mesh_service.h"
 
 /*********************************************************************
  * MACROS
@@ -52,10 +52,10 @@
 /*********************************************************************
  * GLOBAL VARIABLES
  */
-// TXRX Profile Service UUID
-CONST uint8 txrxServUUID[ATT_UUID_SIZE] =
+// MESH Profile Service UUID
+CONST uint8 meshServUUID[ATT_UUID_SIZE] =
 { 
-  TXRX_SERV_UUID
+  MESH_SERV_UUID
 };
 
 // TX Data Char UUID: 0x0002
@@ -108,18 +108,18 @@ CONST uint8 NetworkUUID[ATT_UUID_SIZE] =
  * LOCAL VARIABLES
  */
 
-static txrxServiceCBs_t *txrxService_AppCBs = NULL;
+static meshServiceCBs_t *meshService_AppCBs = NULL;
 
 /*********************************************************************
  * Profile Attributes - variables
  */
 
 // Service attribute
-static CONST gattAttrType_t txrxService = { ATT_UUID_SIZE, txrxServUUID };
+static CONST gattAttrType_t meshService = { ATT_UUID_SIZE, meshServUUID };
 
 
 // Characteristic 2 Properties
-static uint8 txrxServiceChar2Props = GATT_PROP_NOTIFY;
+static uint8 meshServiceChar2Props = GATT_PROP_NOTIFY;
 
 // Characteristic 2 Value
 static uint8 txDataChar[MESSAGE_MAX_LENGTH] = {0};
@@ -127,14 +127,14 @@ static uint8 txDataChar[MESSAGE_MAX_LENGTH] = {0};
 // Characteristic 2 Length
 static uint8 txDataLen = 0;
 
-static gattCharCfg_t txrxServiceChar2Config[GATT_MAX_NUM_CONN];
+static gattCharCfg_t meshServiceChar2Config[GATT_MAX_NUM_CONN];
 
 // Characteristic 2 User Description
-static uint8 txrxServiceChar2UserDesp[17] = "Characteristic 2\0";
+static uint8 meshServiceChar2UserDesp[17] = "Characteristic 2\0";
 
 
 // Characteristic 3 Properties
-static uint8 txrxServiceChar3Props = GATT_PROP_WRITE_NO_RSP;
+static uint8 meshServiceChar3Props = GATT_PROP_WRITE_NO_RSP;
 
 // Characteristic 3 Value
 static uint8 rxDataChar[MESSAGE_MAX_LENGTH] = {0};
@@ -143,27 +143,27 @@ static uint8 rxDataChar[MESSAGE_MAX_LENGTH] = {0};
 static uint8 rxDataLen = 0;
 
 // Characteristic 3 User Description
-static uint8 txrxServiceChar3UserDesp[17] = "Characteristic 3\0";
+static uint8 meshServiceChar3UserDesp[17] = "Characteristic 3\0";
 
 
 // Characteristic 4 Properties
-static uint8 txrxServiceChar4Props = GATT_PROP_WRITE | GATT_PROP_READ;
+static uint8 meshServiceChar4Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
 // Characteristic 4 Value
 static uint16 GroupID = 0;
 
 // Characteristic 4 User Description
-static uint8 txrxServiceChar4UserDesp[10] = "Join Group";
+static uint8 meshServiceChar4UserDesp[10] = "Join Group";
 
 // Characteristic 5 Properties
-static uint8 txrxServiceChar5Props = GATT_PROP_WRITE | GATT_PROP_READ;
+static uint8 meshServiceChar5Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
 // Characteristic 5 User Description
-static uint8 txrxServiceChar5UserDesp[11] = "Leave Group";
+static uint8 meshServiceChar5UserDesp[11] = "Leave Group";
 
 
 // Characteristic 6 Properties
-static uint8 txrxServiceChar6Props = GATT_PROP_WRITE | GATT_PROP_READ;
+static uint8 meshServiceChar6Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
 // Characteristic 6 Value
 static uint8 DevName[DEV_NAME_MAX_LENGTH] = "Biscuit 2";
@@ -172,31 +172,31 @@ static uint8 DevName[DEV_NAME_MAX_LENGTH] = "Biscuit 2";
 static uint8 DevNameLen = 9;
 
 // Characteristic 6 User Description
-static uint8 txrxServiceChar6UserDesp[17] = "Characteristic 5\0";
+static uint8 meshServiceChar6UserDesp[17] = "Characteristic 5\0";
 
 
 // Characteristic 7 Properties
-static uint8 txrxServiceChar7Props = GATT_PROP_WRITE | GATT_PROP_READ;
+static uint8 meshServiceChar7Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
 // Characteristic 7 Value
 static uint24 NetworkID = 0;
 
 // Characteristic 7 User Description
-static uint8 txrxServiceChar7UserDesp[9] = "NetworkID";
+static uint8 meshServiceChar7UserDesp[9] = "NetworkID";
 
 
 /*********************************************************************
  * Profile Attributes - Table
  */
 
-static gattAttribute_t txrxAttrTbl[] = 
+static gattAttribute_t meshAttrTbl[] = 
 {
   // Simple Profile Service
   { 
     { ATT_BT_UUID_SIZE, primaryServiceUUID }, /* type */
     GATT_PERMIT_READ,                         /* permissions */
     0,                                        /* handle */
-    (uint8 *)&txrxService            /* pValue */
+    (uint8 *)&meshService            /* pValue */
   },
 
     // Characteristic 2 Declaration
@@ -204,7 +204,7 @@ static gattAttribute_t txrxAttrTbl[] =
       { ATT_BT_UUID_SIZE, characterUUID },
       GATT_PERMIT_READ, 
       0,
-      &txrxServiceChar2Props 
+      &meshServiceChar2Props 
     },
 
       // Characteristic Value 2
@@ -220,7 +220,7 @@ static gattAttribute_t txrxAttrTbl[] =
         { ATT_BT_UUID_SIZE, clientCharCfgUUID },
         GATT_PERMIT_READ | GATT_PERMIT_WRITE, 
         0, 
-        (uint8 *)txrxServiceChar2Config 
+        (uint8 *)meshServiceChar2Config 
       },
       
       // Characteristic 2 User Description
@@ -228,7 +228,7 @@ static gattAttribute_t txrxAttrTbl[] =
         { ATT_BT_UUID_SIZE, charUserDescUUID },
         GATT_PERMIT_READ, 
         0, 
-        txrxServiceChar2UserDesp 
+        meshServiceChar2UserDesp 
       },           
       
     // Characteristic 3 Declaration
@@ -236,7 +236,7 @@ static gattAttribute_t txrxAttrTbl[] =
       { ATT_BT_UUID_SIZE, characterUUID },
       GATT_PERMIT_READ, 
       0,
-      &txrxServiceChar3Props 
+      &meshServiceChar3Props 
     },
 
       // Characteristic Value 3
@@ -252,7 +252,7 @@ static gattAttribute_t txrxAttrTbl[] =
         { ATT_BT_UUID_SIZE, charUserDescUUID },
         GATT_PERMIT_READ, 
         0, 
-        txrxServiceChar3UserDesp 
+        meshServiceChar3UserDesp 
       },
       
     // Characteristic 4 Declaration
@@ -260,7 +260,7 @@ static gattAttribute_t txrxAttrTbl[] =
       { ATT_BT_UUID_SIZE, characterUUID },
       GATT_PERMIT_READ, 
       0,
-      &txrxServiceChar4Props 
+      &meshServiceChar4Props 
     },
 
       // Characteristic Value 4
@@ -276,7 +276,7 @@ static gattAttribute_t txrxAttrTbl[] =
         { ATT_BT_UUID_SIZE, charUserDescUUID },
         GATT_PERMIT_READ, 
         0, 
-        txrxServiceChar4UserDesp 
+        meshServiceChar4UserDesp 
       },
 	  
 	  // Characteristic 5 Declaration
@@ -284,7 +284,7 @@ static gattAttribute_t txrxAttrTbl[] =
       { ATT_BT_UUID_SIZE, characterUUID },
       GATT_PERMIT_READ, 
       0,
-      &txrxServiceChar5Props 
+      &meshServiceChar5Props 
     },
 
       // Characteristic Value 5
@@ -300,7 +300,7 @@ static gattAttribute_t txrxAttrTbl[] =
         { ATT_BT_UUID_SIZE, charUserDescUUID },
         GATT_PERMIT_READ, 
         0, 
-        txrxServiceChar5UserDesp 
+        meshServiceChar5UserDesp 
       },
       
     // Characteristic 6 Declaration
@@ -308,7 +308,7 @@ static gattAttribute_t txrxAttrTbl[] =
       { ATT_BT_UUID_SIZE, characterUUID },
       GATT_PERMIT_READ, 
       0,
-      &txrxServiceChar6Props 
+      &meshServiceChar6Props 
     },
 
       // Characteristic Value 6
@@ -324,7 +324,7 @@ static gattAttribute_t txrxAttrTbl[] =
         { ATT_BT_UUID_SIZE, charUserDescUUID },
         GATT_PERMIT_READ, 
         0, 
-        txrxServiceChar6UserDesp 
+        meshServiceChar6UserDesp 
       },
       
     
@@ -334,7 +334,7 @@ static gattAttribute_t txrxAttrTbl[] =
       { ATT_BT_UUID_SIZE, characterUUID },
       GATT_PERMIT_READ, 
       0,
-      &txrxServiceChar7Props 
+      &meshServiceChar7Props 
     },
 
       // Characteristic Value 7
@@ -350,7 +350,7 @@ static gattAttribute_t txrxAttrTbl[] =
         { ATT_BT_UUID_SIZE, charUserDescUUID },
         GATT_PERMIT_READ, 
         0, 
-        txrxServiceChar7UserDesp 
+        meshServiceChar7UserDesp 
       },	  
 };
 
@@ -358,22 +358,22 @@ static gattAttribute_t txrxAttrTbl[] =
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
-static uint8 txrx_ReadAttrCB( uint16 connHandle, gattAttribute_t *pAttr, 
+static uint8 mesh_ReadAttrCB( uint16 connHandle, gattAttribute_t *pAttr, 
                             uint8 *pValue, uint8 *pLen, uint16 offset, uint8 maxLen );
-static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
+static bStatus_t mesh_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
                                  uint8 *pValue, uint8 len, uint16 offset );
 
-static void txrx_HandleConnStatusCB( uint16 connHandle, uint8 changeType );
+static void mesh_HandleConnStatusCB( uint16 connHandle, uint8 changeType );
 
 
 /*********************************************************************
  * PROFILE CALLBACKS
  */
 // Simple Profile Service Callbacks
-CONST gattServiceCBs_t txrxCBs =
+CONST gattServiceCBs_t meshCBs =
 {
-  txrx_ReadAttrCB,  // Read callback function pointer
-  txrx_WriteAttrCB, // Write callback function pointer
+  mesh_ReadAttrCB,  // Read callback function pointer
+  mesh_WriteAttrCB, // Write callback function pointer
   NULL                       // Authorization callback function pointer
 };
 
@@ -382,7 +382,7 @@ CONST gattServiceCBs_t txrxCBs =
  */
 
 /*********************************************************************
- * @fn      TXRX_AddService
+ * @fn      MESH_AddService
  *
  * @brief   Initializes the Simple Profile service by registering
  *          GATT attributes with the GATT server.
@@ -392,22 +392,22 @@ CONST gattServiceCBs_t txrxCBs =
  *
  * @return  Success or Failure
  */
-bStatus_t TXRX_AddService( uint32 services )
+bStatus_t MESH_AddService( uint32 services )
 {
   uint8 status = SUCCESS;
 
   // Initialize Client Characteristic Configuration attributes
-  GATTServApp_InitCharCfg( INVALID_CONNHANDLE, txrxServiceChar2Config );
+  GATTServApp_InitCharCfg( INVALID_CONNHANDLE, meshServiceChar2Config );
 
   // Register with Link DB to receive link status change callback
-  VOID linkDB_Register( txrx_HandleConnStatusCB );  
+  VOID linkDB_Register( mesh_HandleConnStatusCB );  
   
-  if ( services & TXRX_SERVICE )
+  if ( services & MESH_SERVICE )
   {
     // Register GATT attribute list and CBs with GATT Server App
-    status = GATTServApp_RegisterService( txrxAttrTbl, 
-                                          GATT_NUM_ATTRS( txrxAttrTbl ),
-                                          &txrxCBs );
+    status = GATTServApp_RegisterService( meshAttrTbl, 
+                                          GATT_NUM_ATTRS( meshAttrTbl ),
+                                          &meshCBs );
   }
 
   return ( status );
@@ -415,7 +415,7 @@ bStatus_t TXRX_AddService( uint32 services )
 
 
 /*********************************************************************
- * @fn      TXRX_RegisterAppCBs
+ * @fn      MESH_RegisterAppCBs
  *
  * @brief   Registers the application callback function. Only call 
  *          this function once.
@@ -424,11 +424,11 @@ bStatus_t TXRX_AddService( uint32 services )
  *
  * @return  SUCCESS or bleAlreadyInRequestedMode
  */
-bStatus_t TXRX_RegisterAppCBs( txrxServiceCBs_t *appCallbacks )
+bStatus_t MESH_RegisterAppCBs( meshServiceCBs_t *appCallbacks )
 {
   if ( appCallbacks )
   {
-    txrxService_AppCBs = appCallbacks;
+    meshService_AppCBs = appCallbacks;
     
     return ( SUCCESS );
   }
@@ -440,7 +440,7 @@ bStatus_t TXRX_RegisterAppCBs( txrxServiceCBs_t *appCallbacks )
   
 
 /*********************************************************************
- * @fn      TXRX_SetParameter
+ * @fn      MESH_SetParameter
  *
  * @brief   Set a Simple Profile parameter.
  *
@@ -453,7 +453,7 @@ bStatus_t TXRX_RegisterAppCBs( txrxServiceCBs_t *appCallbacks )
  *
  * @return  bStatus_t
  */
-bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
+bStatus_t MESH_SetParameter( uint8 param, uint8 len, void *value )
 {
   bStatus_t ret = SUCCESS;
   
@@ -465,8 +465,8 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
         VOID osal_memcpy( txDataChar, value, len );
         txDataLen = len;
         
-        GATTServApp_ProcessCharCfg( txrxServiceChar2Config, txDataChar, FALSE,
-                      txrxAttrTbl, GATT_NUM_ATTRS( txrxAttrTbl ),
+        GATTServApp_ProcessCharCfg( meshServiceChar2Config, txDataChar, FALSE,
+                      meshAttrTbl, GATT_NUM_ATTRS( meshAttrTbl ),
                       INVALID_TASK_ID );
       }
       else
@@ -558,7 +558,7 @@ bStatus_t TXRX_SetParameter( uint8 param, uint8 len, void *value )
  *
  * @return  bStatus_t
  */
-bStatus_t TXRX_GetParameter( uint8 param, uint8 *len, void *value )
+bStatus_t MESH_GetParameter( uint8 param, uint8 *len, void *value )
 {
   bStatus_t ret = SUCCESS;
   
@@ -601,7 +601,7 @@ bStatus_t TXRX_GetParameter( uint8 param, uint8 *len, void *value )
 }
 
 /*********************************************************************
- * @fn          txrx_ReadAttrCB
+ * @fn          mesh_ReadAttrCB
  *
  * @brief       Read an attribute.
  *
@@ -614,7 +614,7 @@ bStatus_t TXRX_GetParameter( uint8 param, uint8 *len, void *value )
  *
  * @return      Success or Failure
  */
-static uint8 txrx_ReadAttrCB( uint16 connHandle, gattAttribute_t *pAttr, 
+static uint8 mesh_ReadAttrCB( uint16 connHandle, gattAttribute_t *pAttr, 
                             uint8 *pValue, uint8 *pLen, uint16 offset, uint8 maxLen )
 {
   bStatus_t status = SUCCESS;
@@ -674,7 +674,7 @@ static uint8 txrx_ReadAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
 }
 
 /*********************************************************************
- * @fn      txrx_WriteAttrCB
+ * @fn      mesh_WriteAttrCB
  *
  * @brief   Validate attribute data prior to a write operation
  *
@@ -688,7 +688,7 @@ static uint8 txrx_ReadAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
  *
  * @return  Success or Failure
  */
-static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
+static bStatus_t mesh_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
                                  uint8 *pValue, uint8 len, uint16 offset )
 {
   bStatus_t status = SUCCESS;
@@ -713,9 +713,9 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
         if (status == SUCCESS)
         {
           uint16 charCfg = BUILD_UINT16( pValue[0], pValue[1] );
-          txrxService_AppCBs->pfnTXRXServiceChange( (charCfg == GATT_CFG_NO_OPERATION) ?
-                                                      TXRX_RX_NOTI_DISABLED :
-                                                      TXRX_RX_NOTI_ENABLED );
+          meshService_AppCBs->pfnMESHServiceChange( (charCfg == GATT_CFG_NO_OPERATION) ?
+                                                      MESH_RX_NOTI_DISABLED :
+                                                      MESH_RX_NOTI_ENABLED );
         }
         break;
         
@@ -868,16 +868,16 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
   }
 
   // If a charactersitic value changed then callback function to notify application of change
-  if ( (notifyApp != 0xFF ) && txrxService_AppCBs && txrxService_AppCBs->pfnTXRXServiceChange )
+  if ( (notifyApp != 0xFF ) && meshService_AppCBs && meshService_AppCBs->pfnMESHServiceChange )
   {
-    txrxService_AppCBs->pfnTXRXServiceChange( notifyApp );  
+    meshService_AppCBs->pfnMESHServiceChange( notifyApp );  
   }
   
   return ( status );
 }
 
 /*********************************************************************
- * @fn          txrx_HandleConnStatusCB
+ * @fn          mesh_HandleConnStatusCB
  *
  * @brief       Simple Profile link status change handler function.
  *
@@ -886,7 +886,7 @@ static bStatus_t txrx_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
  *
  * @return      none
  */
-static void txrx_HandleConnStatusCB( uint16 connHandle, uint8 changeType )
+static void mesh_HandleConnStatusCB( uint16 connHandle, uint8 changeType )
 { 
   // Make sure this is not loopback connection
   if ( connHandle != LOOPBACK_CONNHANDLE )
@@ -896,7 +896,7 @@ static void txrx_HandleConnStatusCB( uint16 connHandle, uint8 changeType )
          ( ( changeType == LINKDB_STATUS_UPDATE_STATEFLAGS ) && 
            ( !linkDB_Up( connHandle ) ) ) )
     { 
-      GATTServApp_InitCharCfg( connHandle, txrxServiceChar2Config );
+      GATTServApp_InitCharCfg( connHandle, meshServiceChar2Config );
     }
   }
 }
