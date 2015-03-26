@@ -76,6 +76,8 @@ void sendStatelessMessage(uint16 destination, uint8* message, uint8 length);
 
 uint8 joinGroup(uint16 groupId);
 
+uint8 leaveGroup(uint16 groupId);
+
 void destructMeshConnectionProtocol();
 
 void periodicTask();

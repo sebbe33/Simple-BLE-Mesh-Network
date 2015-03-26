@@ -727,7 +727,7 @@ static bStatus_t mesh_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
   }
   else // 128-bit  
   {
-    if ( osal_memcmp(pAttr->type.uuid, rxMessageCharUUID, ATT_UUID_SIZE) )
+    if ( osal_memcmp(pAttr->type.uuid, rxMessageUUID, ATT_UUID_SIZE) )
     {
       //Validate the value
       // Make sure it's not a blob oper
@@ -846,7 +846,7 @@ static bStatus_t mesh_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
       {
         status = ATT_ERR_ATTR_NOT_LONG;
       }
-      if(*pValue > 4) //TODO: remove?
+      
       
         
       //Write the value
