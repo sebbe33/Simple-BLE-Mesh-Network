@@ -927,19 +927,19 @@ static void meshServiceChangeCB( uint8 paramID )
 	
 	switch(type)
 	{
-		case 0:		//BROADCAST
+		case BROADCAST:
 		{
 			broadcastMessage(message, length);
 		}
-		case 1:		//GROUP_BROADCAST
+		case GROUP_BROADCAST:
 		{
 			broadcastGroupMessage(dest, message, length);
 		}
-		case 2:		//STATELESS_MESSAGE
+		case STATELESS_MESSAGE:
 		{
 			sendStatelessMessage(dest, message, length);
 		}
-		case 3:		//STATEFUL_MESSAGE
+		case STATEFUL_MESSAGE:
 		{
 			sendStatefulMessage(dest, message, length);
 		}
