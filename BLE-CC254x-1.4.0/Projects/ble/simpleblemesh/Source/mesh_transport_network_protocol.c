@@ -5,8 +5,6 @@
 #define PENDING_ACK_RESEND_TIMEOUT 1000
 #define GROUP_MEMBERSHIP_MAX 40
 
-#include <stdio.h>
-
 /* Private varialbles */
 static uint24 networkIdentifier; 
 static uint16 id;

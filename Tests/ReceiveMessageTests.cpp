@@ -178,6 +178,7 @@ TEST_F(TNPTest, ResendStatefulMessage) {
     // Validate that the right data is sent out
     TNPTest::validateHeaderData(TNPTest::networkID, sender, receiver1, 
             STATEFUL_MESSAGE, 9, TNPTest::advertisingData[TNPTest::advertisingCalls-1]);
+    TNPTest::validateData(&TNPTest::advertisingData[0][9], &TNPTest::advertisingData[TNPTest::advertisingCalls-1][9], 9);
     
     // ACK the first message
     uint8 ackData[10] = {0};
@@ -205,10 +206,11 @@ TEST_F(TNPTest, ResendStatefulMessage) {
     // Validate that the right data is sent out in message 2
     TNPTest::validateHeaderData(TNPTest::networkID, sender, receiver2, 
             STATEFUL_MESSAGE, 3, TNPTest::advertisingData[TNPTest::advertisingCalls-2]);
+    TNPTest::validateData(&TNPTest::advertisingData[1][9], &TNPTest::advertisingData[TNPTest::advertisingCalls-2][9], 3);
     // in message 3
     TNPTest::validateHeaderData(TNPTest::networkID, sender, receiver1, 
             STATEFUL_MESSAGE, 5, TNPTest::advertisingData[TNPTest::advertisingCalls-1]);
-
+    TNPTest::validateData(&TNPTest::advertisingData[2][9], &TNPTest::advertisingData[TNPTest::advertisingCalls-1][9], 5);
     
     // Ack the 2nd message
     ackHeader->source = receiver2;
@@ -250,7 +252,3 @@ TEST_F(TNPTest, ResendStatefulMessage) {
     periodicTask();
     ASSERT_EQ(advertisingCount, TNPTest::advertisingCalls);
 }
-
-// TEST: resend stateful messages
-
-// TEST: resend message with same source and sequence ID 
