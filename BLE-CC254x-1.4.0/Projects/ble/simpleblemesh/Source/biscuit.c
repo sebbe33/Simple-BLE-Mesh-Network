@@ -49,7 +49,7 @@ SOFTWARE.
 #include "gapbondmgr.h"
 
 #include "biscuit.h"
-#include "txrxservice.h"
+#include "mesh_service.h"
 #include "npi.h"
 
 #include "i2c.h"
@@ -149,6 +149,8 @@ static uint8 RXBuf[MAX_RX_LEN];
 static uint8 rxLen = 0;
 static uint8 rxHead = 0, rxTail = 0;
 
+static uint24 networkID = 0;
+
 // GAP - SCAN RSP data (max size = 31 bytes)
 static uint8 scanRspData[] =
 {
@@ -161,7 +163,7 @@ static uint8 scanRspData[] =
   // in this peripheral
   17,   // length of this data
   GAP_ADTYPE_128BIT_COMPLETE,      // some of the UUID's, but not all
-  TXRX_SERV_UUID,
+  MESH_SERV_UUID,
   
 };
 
@@ -206,7 +208,7 @@ static uint32 timeHandled = 0;
 static void biscuit_ProcessOSALMsg( osal_event_hdr_t *pMsg );
 static void peripheralStateNotificationCB( gaprole_States_t newState );
 static void performPeriodicTask( void );
-static void txrxServiceChangeCB( uint8 paramID );
+static void meshServiceChangeCB( uint8 paramID );
 static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent );
 
 
@@ -242,9 +244,9 @@ static gapBondCBs_t biscuit_BondMgrCBs =
 };
 
 // Simple GATT Profile Callbacks
-static txrxServiceCBs_t biscuit_TXRXServiceCBs =
+static meshServiceCBs_t biscuit_MESHServiceCBs =
 {
-  txrxServiceChangeCB    // Charactersitic value change callback
+  meshServiceChangeCB    // Charactersitic value change callback
 };
 /*********************************************************************
 * PUBLIC FUNCTIONS
@@ -315,7 +317,7 @@ void Biscuit_Init( uint8 task_id )
   {
     GGS_SetParameter( GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, attDeviceName );
     uint8 len = strlen( (char const *)attDeviceName );
-    TXRX_SetParameter( DEV_NAME_CHAR, len, attDeviceName );
+    MESH_SetParameter( DEV_NAME_CHAR, len, attDeviceName );
     
     eeprom_write(4, 1);
     eeprom_write(5, len);
@@ -333,7 +335,7 @@ void Biscuit_Init( uint8 task_id )
     }
     devName[nameLen] = '\0';
     GGS_SetParameter( GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, devName );
-    TXRX_SetParameter( DEV_NAME_CHAR, nameLen, devName );
+    MESH_SetParameter( DEV_NAME_CHAR, nameLen, devName );
   } 
   
   uint8 LocalName[GAP_DEVICE_NAME_LEN];
@@ -380,7 +382,7 @@ void Biscuit_Init( uint8 task_id )
   GGS_AddService( GATT_ALL_SERVICES );            // GAP
   GATTServApp_AddService( GATT_ALL_SERVICES );    // GATT attributes
   //DevInfo_AddService();                           // Device Information Service
-  TXRX_AddService( GATT_ALL_SERVICES );  // Simple GATT Profile
+  MESH_AddService( GATT_ALL_SERVICES );  // Simple GATT Profile
 #if defined FEATURE_OAD
   VOID OADTarget_AddService();                    // OAD Profile
 #endif
@@ -412,8 +414,8 @@ void Biscuit_Init( uint8 task_id )
   
 #endif // #if defined( CC2540_MINIDK )
   
-  // Register callback with TXRXService
-  VOID TXRX_RegisterAppCBs( &biscuit_TXRXServiceCBs );
+  // Register callback with MESHService
+  VOID MESH_RegisterAppCBs( &biscuit_MESHServiceCBs );
   
   // Enable clock divide on halt
   // This reduces active current while radio is active and CC254x MCU
@@ -427,6 +429,9 @@ void Biscuit_Init( uint8 task_id )
   PERCFG |= 1;
   NPI_InitTransport(dataHandler);
   
+  
+  
+  /*
   uint8 flag, baud;
   uint8 value;
   flag = eeprom_read(0);
@@ -494,7 +499,7 @@ void Biscuit_Init( uint8 task_id )
       break;
     }
   }
-  TXRX_SetParameter( BAUDRATE_CHAR, 1, &value );
+  MESH_SetParameter( BAUDRATE_CHAR, 1, &value );
   
   uint8 flag2, txpwr;
   flag2 = eeprom_read(2);
@@ -511,7 +516,8 @@ void Biscuit_Init( uint8 task_id )
   {
     HCI_EXT_SetTxPowerCmd( txpwr );
   }
-  TXRX_SetParameter( TX_POWER_CHAR, 1, &txpwr );
+  MESH_SetParameter( TX_POWER_CHAR, 1, &txpwr );
+  */
   
   // Setup a delayed profile startup
   osal_set_event( biscuit_TaskID, SBP_START_DEVICE_EVT );
@@ -601,7 +607,7 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
           rxTail = 0;
         }
       }
-      TXRX_SetParameter(TX_DATA_CHAR, send, data);
+      MESH_SetParameter(TX_MESSAGE_CHAR, send, data);
     }
     
     return (events ^ SBP_RX_TIME_OUT_EVT);
@@ -894,7 +900,7 @@ static void performPeriodicTask( void )
 }
 
 /*********************************************************************
-* @fn      txrxServiceChangeCB
+* @fn      meshServiceChangeCB
 *
 * @brief   Callback from SimpleBLEProfile indicating a value change
 *
@@ -902,76 +908,68 @@ static void performPeriodicTask( void )
 *
 * @return  none
 */
-static void txrxServiceChangeCB( uint8 paramID )
+static void meshServiceChangeCB( uint8 paramID )
 {
-  uint8 data[20];
+  uint8 data[26];
   uint8 len;
   
-  if (paramID == TXRX_RX_DATA_READY)
+  if (paramID == MESSAGE_READY)
   {
-    TXRX_GetParameter(RX_DATA_CHAR, &len, data);
-    HalUARTWrite(NPI_UART_PORT, (uint8*)data, len);
+    MESH_GetParameter(RX_MESSAGE_CHAR, &len, data);
+    uint8 length = data[0];
+	MessageType type = data[1];
+	uint16 dest = data[2];
+	uint8 message[23];
+	
+	for(int i = 4; i < 27; i++){
+			message[i-4]=data[i];
+	}
+	
+	switch(type)
+	{
+		case 0:		//BROADCAST
+		{
+			broadcastMessage(message, length);
+		}
+		case 1:		//GROUP_BROADCAST
+		{
+			broadcastGroupMessage(dest, message, length);
+		}
+		case 2:		//STATELESS_MESSAGE
+		{
+			sendStatelessMessage(dest, message, length);
+		}
+		case 3:		//STATEFUL_MESSAGE
+		{
+			sendStatefulMessage(dest, message, length);
+		}
+	}		
+	
+	
   }
-  else if (paramID == TXRX_RX_NOTI_ENABLED)
+  else if (paramID == MESH_RX_NOTI_ENABLED)
   {
     GAPRole_SendUpdateParam( DEFAULT_DESIRED_MAX_CONN_INTERVAL, DEFAULT_DESIRED_MIN_CONN_INTERVAL,
                             DEFAULT_DESIRED_SLAVE_LATENCY, DEFAULT_DESIRED_CONN_TIMEOUT, GAPROLE_RESEND_PARAM_UPDATE );
   }
-  else if (paramID == BAUDRATE_SET)
+  else if (paramID == JOIN_GROUP_SET)
   {
-    uint8 newValue;
-    TXRX_GetParameter(BAUDRATE_CHAR, &len, &newValue);
-    switch(newValue)
-    {
-    case 0:   //9600
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x08;
-        U0BAUD = 59;
-        break;
-      }
-      
-    case 1:   //19200
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x09;
-        U0BAUD = 59;
-        break;
-      }
-      
-    case 2:   //38400
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x0A;
-        U0BAUD = 59;
-        break;
-      }
-      
-    case 3:   //57600
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x0A;
-        U0BAUD = 216;
-        break;
-      }
-      
-    case 4:   //115200
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x0B;
-        U0BAUD = 216;
-        break;
-      }
-      
-    default:
-      break;
-    }
-    eeprom_write(1, newValue);
+    uint16 newGroup;
+    MESH_GetParameter(JOIN_GROUP_CHAR, &len, &newGroup);
+	joinGroup(newGroup);
+	
+  }
+  else if (paramID == LEAVE_GROUP_SET)
+  {
+    uint16 oldGroup;
+    MESH_GetParameter(LEAVE_GROUP_CHAR, &len, &oldGroup);
+	leaveGroup(oldGroup);
+	
   }
   else if (paramID == DEV_NAME_CHANGED)
   {
     uint8 newDevName[GAP_DEVICE_NAME_LEN];
-    TXRX_GetParameter(DEV_NAME_CHAR, &len, newDevName);
+    MESH_GetParameter(DEV_NAME_CHAR, &len, newDevName);
     
     uint8 devNamePermission = GATT_PERMIT_READ|GATT_PERMIT_WRITE; 
     GGS_SetParameter( GGS_W_PERMIT_DEVICE_NAME_ATT, sizeof ( uint8 ), &devNamePermission );
@@ -989,16 +987,14 @@ static void txrxServiceChangeCB( uint8 paramID )
       eeprom_write(i+8, newDevName[i]);
     }
   }
-  else if (paramID == TX_POWER_CHANGED)
+  else if (paramID == NETWORK_SET)
   {
-    uint8 newValue;
-    TXRX_GetParameter(TX_POWER_CHAR, &len, &newValue);
-    
-    if(newValue < 4 && newValue >= 0)
-    {
-      HCI_EXT_SetTxPowerCmd( newValue );
-    }
-    eeprom_write(3, newValue);
+    uint24 newNetwork;
+    MESH_GetParameter(NETWORK_CHAR, &len, &newNetwork);
+    osal_memcpy(&networkID, &newNetwork, len);
+	eeprom_write(??, newNetwork);
+	//TODO: fix address
+	
   }
 }
 
@@ -1048,6 +1044,7 @@ static void dataHandler( uint8 port, uint8 events )
   }
   return;
 }
+
 
 /*********************************************************************
 *********************************************************************/

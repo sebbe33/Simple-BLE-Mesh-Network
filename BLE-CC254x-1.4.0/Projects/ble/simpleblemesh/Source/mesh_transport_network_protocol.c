@@ -169,6 +169,20 @@ uint8 joinGroup(uint16 groupId)
     return FALSE;
 }
 
+uint8 leaveGroup(uint16 groupId)
+{
+	for(int i=0; i<groupMemberIndex){
+		if(groupMemberships[i]==groupId){
+			for(int j=i;j<groupMemberIndex){
+				groupMemberships[j] = groupMemberships[j+1];
+			}
+			groupMemberIndex--;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 void periodicTask() 
 {
     // Clear processed messages which are older than 
