@@ -171,9 +171,9 @@ uint8 joinGroup(uint16 groupId)
 
 uint8 leaveGroup(uint16 groupId)
 {
-	for(int i=0; i<groupMemberIndex){
-		if(groupMemberships[i]==groupId){
-			for(int j=i;j<groupMemberIndex){
+	for(uint8 i = 0; i < groupMemberIndex; i++){
+		if(groupMemberships[i] == groupId){
+			for(uint8 j=i ; j < groupMemberIndex; j++){
 				groupMemberships[j] = groupMemberships[j+1];
 			}
 			groupMemberIndex--;

@@ -4336,6 +4336,12 @@
       <name>$PROJ_DIR$\..\Source\i2c.h</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\Source\mesh_service.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\mesh_service.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\Source\mesh_transport_network_protocol.c</name>
     </file>
     <file>
@@ -4744,12 +4750,6 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\Include\gattservapp.h</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\..\Profiles\TXRX\txrxservice.c</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\..\Profiles\TXRX\txrxservice.h</name>
     </file>
   </group>
   <group>

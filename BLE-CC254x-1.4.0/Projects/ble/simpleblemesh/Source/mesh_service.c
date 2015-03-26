@@ -150,7 +150,7 @@ static uint8 meshServiceChar3UserDesp[17] = "Characteristic 3\0";
 static uint8 meshServiceChar4Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
 // Characteristic 4 Value
-static uint16 GroupID = 0;
+static uint8 groupID[GROUP_ID_LENGTH] = {0};
 
 // Characteristic 4 User Description
 static uint8 meshServiceChar4UserDesp[10] = "Join Group";
@@ -179,7 +179,7 @@ static uint8 meshServiceChar6UserDesp[17] = "Characteristic 5\0";
 static uint8 meshServiceChar7Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
 // Characteristic 7 Value
-static uint24 NetworkID = 0;
+static uint8 networkID[NETWORK_ID_LENGTH] = {0};
 
 // Characteristic 7 User Description
 static uint8 meshServiceChar7UserDesp[9] = "NetworkID";
@@ -268,7 +268,7 @@ static gattAttribute_t meshAttrTbl[] =
         { ATT_UUID_SIZE, JoinGroupUUID },
         GATT_PERMIT_WRITE | GATT_PERMIT_READ, 
         0, 
-        &GroupID 
+        groupID 
       },
 
       // Characteristic 4 User Description
@@ -292,7 +292,7 @@ static gattAttribute_t meshAttrTbl[] =
         { ATT_UUID_SIZE, LeaveGroupUUID },
         GATT_PERMIT_WRITE | GATT_PERMIT_READ, 
         0, 
-        &GroupID 
+        groupID 
       },
 
       // Characteristic 5 User Description
@@ -342,7 +342,7 @@ static gattAttribute_t meshAttrTbl[] =
         { ATT_UUID_SIZE, NetworkUUID },
         GATT_PERMIT_WRITE | GATT_PERMIT_READ, 
         0, 
-        &NetworkID 
+        networkID 
       },
 
       // Characteristic 7 User Description
@@ -529,7 +529,7 @@ bStatus_t MESH_SetParameter( uint8 param, uint8 len, void *value )
    case NETWORK_CHAR:
       if ( len == NETWORK_ID_LENGTH ) 
       {
-		 VOID osal_memcpy( &NetworkID, value, len );
+         VOID osal_memcpy(networkID, value, len);
       }
       else
       {
@@ -575,11 +575,11 @@ bStatus_t MESH_GetParameter( uint8 param, uint8 *len, void *value )
       break; 
 
     case JOIN_GROUP_CHAR:
-      VOID osal_memcpy(value, &GroupID, GROUP_ID_LENGTH);
+      VOID osal_memcpy(value, groupID, GROUP_ID_LENGTH);
       break;
 	  
 	case LEAVE_GROUP_CHAR:
-      VOID osal_memcpy(value, &GroupID, GROUP_ID_LENGTH);
+      VOID osal_memcpy(value, groupID, GROUP_ID_LENGTH);
 		break;
 	  
     case DEV_NAME_CHAR:
@@ -589,7 +589,7 @@ bStatus_t MESH_GetParameter( uint8 param, uint8 *len, void *value )
       
     
 	case NETWORK_CHAR:
-	  VOID osal_memcpy(value, &NetworkID, NETWORK_ID_LENGTH);
+	  VOID osal_memcpy(value, networkID, NETWORK_ID_LENGTH);
       break;
 	        
     default:

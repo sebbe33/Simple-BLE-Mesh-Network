@@ -57,6 +57,7 @@ SOFTWARE.
 #include "string.h"
 
 #include "print_uart.h"
+#include "mesh_transport_network_protocol.h"
 /*********************************************************************
 * MACROS
 */
@@ -927,19 +928,19 @@ static void meshServiceChangeCB( uint8 paramID )
 	
 	switch(type)
 	{
-		case 0:		//BROADCAST
+		case BROADCAST:
 		{
 			broadcastMessage(message, length);
 		}
-		case 1:		//GROUP_BROADCAST
+		case GROUP_BROADCAST:
 		{
 			broadcastGroupMessage(dest, message, length);
 		}
-		case 2:		//STATELESS_MESSAGE
+		case STATELESS_MESSAGE:
 		{
 			sendStatelessMessage(dest, message, length);
 		}
-		case 3:		//STATEFUL_MESSAGE
+		case STATEFUL_MESSAGE:
 		{
 			sendStatefulMessage(dest, message, length);
 		}
@@ -990,9 +991,10 @@ static void meshServiceChangeCB( uint8 paramID )
   else if (paramID == NETWORK_SET)
   {
     uint24 newNetwork;
-    MESH_GetParameter(NETWORK_CHAR, &len, &newNetwork);
+    MESH_GetParameter(NETWORK_CHAR, &len, &data);
+    newNetwork = (data[2] << 16) | (data[1] << 8) | data[0];
     osal_memcpy(&networkID, &newNetwork, len);
-	eeprom_write(??, newNetwork);
+	//eeprom_write(??, newNetwork);
 	//TODO: fix address
 	
   }
