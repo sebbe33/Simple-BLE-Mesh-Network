@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#define TEST_FLAG
+//#define TEST_FLAG
 
 #ifdef TEST_FLAG
     #include <time.h>

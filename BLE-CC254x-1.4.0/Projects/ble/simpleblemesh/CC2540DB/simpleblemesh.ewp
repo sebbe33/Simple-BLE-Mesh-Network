@@ -4336,6 +4336,12 @@
       <name>$PROJ_DIR$\..\Source\i2c.h</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\Source\mesh_transport_network_protocol.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\mesh_transport_network_protocol.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\Source\OSAL_Biscuit.c</name>
     </file>
     <file>
