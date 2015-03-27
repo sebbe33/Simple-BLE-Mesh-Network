@@ -211,7 +211,8 @@ static void peripheralStateNotificationCB( gaprole_States_t newState );
 static void performPeriodicTask( void );
 static void meshServiceChangeCB( uint8 paramID );
 static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent );
-
+static void advertiseCallback(uint8* data, uint8 length);
+static void messageCallback(uint8* data, uint8 length);
 
 #if defined( CC2540_MINIDK )
 static void biscuit_HandleKeys( uint8 shift, uint8 keys );
@@ -520,6 +521,9 @@ void Biscuit_Init( uint8 task_id )
   MESH_SetParameter( TX_POWER_CHAR, 1, &txpwr );
   */
   
+  initializeMeshConnectionProtocol(0,0,&advertiseCallback, &messageCallback,
+                                   &osal_GetSystemClock);
+
   // Setup a delayed profile startup
   osal_set_event( biscuit_TaskID, SBP_START_DEVICE_EVT );
 }
@@ -798,34 +802,17 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
   {
   case GAP_DEVICE_INIT_DONE_EVENT:  
     {
-      //LCD_WRITE_STRING( "BLE Observer", HAL_LCD_LINE_1 );
-      //LCD_WRITE_STRING( bdAddr2Str( pEvent->initDone.devAddr ),  HAL_LCD_LINE_2 );
-      debugPrintLine("GAP_DEVICE_INIT_DONE_EVENT");
     }
     break;
     
   case GAP_DEVICE_INFO_EVENT:
     {
-      
-      //simpleBLEAddDeviceInfo( pEvent->deviceInfo.addr, pEvent->deviceInfo.addrType );
       uint8* data = pEvent->deviceInfo.pEvtData;
       uint8  dataLen = pEvent->deviceInfo.dataLen;
-      //debugPrintLine("Device found");
+      processIncomingMessage(data, dataLen);
       
-      if(data[3] == 0x1A){
-        //debugPrintLine("Mac found");
-        //timeReceived =  osal_GetSystemClock(); 
-        GAPObserverRole_StopDiscovery();
-        infoEvent++;
-        
-        //osal_memcpy(&advertData[5], data, dataLen-5);
-        advertData[5] = 0;
-        advertData[6] = 0;
-        /*GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( advertData ), advertData );
-        uint8 initial_advertising_enable = TRUE;
-        GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &initial_advertising_enable );*/
-        
-      }
+      //debugPrintLine("Device found");
+
     }
     break;
     
@@ -878,26 +865,9 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 */
 static void performPeriodicTask( void )
 {
-  debugPrintLine("Found mac in:");
-  //uint8 stat = getStatus_();
-  debugPrintRaw(&infoEvent);
-  debugPrintLine("out of:");
-  debugPrintRaw(&discoveryEvent);
-  infoEvent = 0;
-  discoveryEvent = 0;
-  debugPrintLine("Connection interval: ");
-  uint8 data;
-  GAPRole_GetParameter(GAPROLE_CONN_INTERVAL, &data);
-  debugPrintRaw(&data);
-  //debugPrintLine("Time between:");
-  //uint32 t = timeHandled - timeReceived;
-  //debugPrintRawArray((uint8*) &t, 4);
   bStatus_t ret = GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
                                                  DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                                  DEFAULT_DISCOVERY_WHITE_LIST );
-  
-  
-  // do nothing
 }
 
 /*********************************************************************
@@ -1047,6 +1017,18 @@ static void dataHandler( uint8 port, uint8 events )
   return;
 }
 
-
 /*********************************************************************
 *********************************************************************/
+
+static void advertiseCallback(uint8* data, uint8 length)
+{
+    GAPObserverRole_StopDiscovery();
+    GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( advertData ), advertData );
+    uint8 dummy = TRUE;
+    GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy );
+
+}
+static void messageCallback(uint8* data, uint8 length)
+{
+
+}
