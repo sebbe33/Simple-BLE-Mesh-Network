@@ -433,97 +433,19 @@ void Biscuit_Init( uint8 task_id )
   
   
   
-  /*
-  uint8 flag, baud;
-  uint8 value;
-  flag = eeprom_read(0);
-  baud = eeprom_read(1);
-  if( flag!=1 || baud>4 )       // First time power up after burning firmware
-  {
-    U0GCR &= 0xE0;      // Default baudrate 57600
-    U0GCR |= 0x0A;
-    U0BAUD = 216;
-    value = 3;
-    
-    eeprom_write(0, 1);
-    eeprom_write(1, 3);
-  }
-  else
-  {
-    switch(baud)
-    {
-    case 0:   //9600
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x08;
-        U0BAUD = 59;
-        value = 0;
-        break;
-      }
-      
-    case 1:   //19200
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x09;
-        U0BAUD = 59;
-        value = 1;
-        break;
-      }
-      
-    case 2:   //38400
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x0A;
-        U0BAUD = 59;
-        value = 2;
-        break;
-      }
-      
-    case 3:   //57600
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x0A;
-        U0BAUD = 216;
-        value = 3;
-        break;
-      }
-      
-    case 4:   //115200
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x0B;
-        U0BAUD = 216;
-        value = 4;
-        break;
-      }
-      
-    default:
-      break;
-    }
-  }
-  MESH_SetParameter( BAUDRATE_CHAR, 1, &value );
   
-  uint8 flag2, txpwr;
-  flag2 = eeprom_read(2);
-  txpwr = eeprom_read(3);
-  if( flag2!=1 || txpwr>3 )       // First time power up after burning firmware
-  {
-    HCI_EXT_SetTxPowerCmd( HCI_EXT_TX_POWER_0_DBM );
-    txpwr = HCI_EXT_TX_POWER_0_DBM;
-    
-    eeprom_write(2, 1);
-    eeprom_write(3, HCI_EXT_TX_POWER_0_DBM);
-  }
-  else
-  {
-    HCI_EXT_SetTxPowerCmd( txpwr );
-  }
-  MESH_SetParameter( TX_POWER_CHAR, 1, &txpwr );
-  */
-  
-  initializeMeshConnectionProtocol(0,0,&advertiseCallback, &messageCallback,
-                                   &osal_GetSystemClock);
 
+  U0GCR &= 0xE0;
+  U0GCR |= 0x0A;
+  U0BAUD = 216;
+
+  HCI_EXT_SetTxPowerCmd( HCI_EXT_TX_POWER_0_DBM );
+
+  
+  
+  /*initializeMeshConnectionProtocol(0,0,&advertiseCallback, &messageCallback,
+                                   &osal_GetSystemClock);
+*/
   // Setup a delayed profile startup
   osal_set_event( biscuit_TaskID, SBP_START_DEVICE_EVT );
 }
@@ -721,14 +643,9 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     
   case GAPROLE_ADVERTISING:
     {
-      if(infoEvent == 1) {
-        infoEvent = 2;
-        
-        timeHandled = osal_GetSystemClock(); 
-      }
-      /*debugPrintLine("Started advertising");
+      debugPrintLine("Started advertising");
       uint8 stat = getStatus_();
-      debugPrintRaw(&stat);*/
+      debugPrintRaw(&stat);
       
     }
     break;
@@ -819,9 +736,10 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
   case GAP_DEVICE_DISCOVERY_EVENT:
     {
       discoveryEvent++;
-      GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
+      /*GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
                                                  DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                                 DEFAULT_DISCOVERY_WHITE_LIST );
+        
+      DEFAULT_DISCOVERY_WHITE_LIST );
       // discovery complete
       /*simpleBLEScanning = FALSE;
       
@@ -865,9 +783,45 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 */
 static void performPeriodicTask( void )
 {
-  bStatus_t ret = GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
+  debugPrintLine("Long size");
+  uint8 h = sizeof(uint32);
+  debugPrintRaw(&h);
+  eeprom_page_write(5, 0x01, 0x02, 0x03, 0x4);
+  long unsigned i = eeprom_read_page(5);
+  uint8 u1 = (uint8) (i >> 24);
+  uint8 u2 = (uint8) (i >> 16);
+  uint8 u3 = (uint8) (i >> 8);
+  uint8 u4 = (uint8) i;
+  
+  /*uint8 u1, u2 = 0, u3 = 0, u4 = 0;
+  eeprom_read_page_bytes(5, &u1, &u2, &u3, &u4);*/
+  debugPrintLine("Data: ");
+  if(u1 == 0xFF) {
+    debugPrintLine("FF");
+  } else {
+    debugPrintRaw(&u1);
+  }
+  if(u2 == 0xFF) {
+    debugPrintLine("FF");
+  } else {
+    debugPrintRaw(&u2);
+  }
+  if(u3 == 0xFF) {
+    debugPrintLine("FF");
+  } else {
+    debugPrintRaw(&u3);
+  }
+  if(u4 == 0xFF) {
+    debugPrintLine("FF");
+  } else {
+    debugPrintRaw(&u4);
+  }
+  
+  /*bStatus_t ret = GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
                                                  DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                                  DEFAULT_DISCOVERY_WHITE_LIST );
+
+*/
 }
 
 /*********************************************************************
