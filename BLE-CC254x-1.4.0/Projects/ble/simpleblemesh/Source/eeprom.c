@@ -24,6 +24,7 @@
 */
 
 #include "i2c.h"
+#include "eeprom.h"
 
 void eeprom_write_25(unsigned char *data)
 {
@@ -41,10 +42,19 @@ void eeprom_page_write(unsigned short addr, unsigned char wdata0, unsigned char 
     i2c_write(addr>>8);  // High byte
     i2c_write(addr);  // Low byte
     i2c_write(wdata0);
+    for (int i = 0; i < 5000; i++)
+      asm("nop");
     i2c_write(wdata1);
+    for (int i = 0; i < 5000; i++)
+      asm("nop");
     i2c_write(wdata2);
+    for (int i = 0; i < 5000; i++)
+      asm("nop");
     i2c_write(wdata3);
     i2c_stop();
+    
+    for (int i = 0; i < 5000; i++)
+      asm("nop");
 }
 
 void eeprom_write(unsigned short addr, unsigned char wdata)
@@ -71,4 +81,41 @@ unsigned char eeprom_read(unsigned short addr)
     i2c_stop();
     
     return r;    
+}
+
+unsigned long eeprom_read_page(unsigned short addr)
+{
+    unsigned long result;
+    
+    i2c_start(0xa0);
+    i2c_write(addr>>8);  // High byte
+    i2c_write(addr);  // Low byte
+    i2c_restart(0xa1);
+    result |= (i2c_read(1) << 24) & 0xFF000000;
+    i2c_restart(0xa1);
+    result |= (i2c_read(2) << 16) & 0x00FF0000;
+    i2c_restart(0xa1);
+    result |= i2c_read(3) << 8;
+    i2c_restart(0xa1);
+    result |= i2c_read(4);
+    i2c_stop();
+    
+    return result;    
+}
+
+void eeprom_read_page_bytes(unsigned short addr, unsigned char* wdata0, unsigned char* wdata1, unsigned char* wdata2, unsigned char* wdata3)
+{
+    i2c_start(0xa0);
+    i2c_write(addr>>8);  // High byte
+    i2c_write(addr);  // Low byte
+    i2c_restart(0xa1);
+    *wdata0 = i2c_read(1);
+    i2c_restart(0xa1);
+    *wdata1 = i2c_read(2);
+    i2c_restart(0xa1);
+    *wdata2 = i2c_read(3);
+    i2c_restart(0xa1);
+    *wdata3 = i2c_read(4);
+    i2c_stop();
+ 
 }

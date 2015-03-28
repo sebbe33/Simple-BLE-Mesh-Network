@@ -405,6 +405,7 @@ void Biscuit_Init( uint8 task_id )
   PERCFG |= 1;
   NPI_InitTransport(dataHandler);
   
+
   //Set baudrate
   {
     U0GCR &= 0xE0;      // Default baudrate 57600
@@ -419,7 +420,6 @@ void Biscuit_Init( uint8 task_id )
   
   
   initializeMeshConnectionProtocol(networkID,nodeID,&advertiseCallback, &messageCallback,
-                                   &osal_GetSystemClock);
 
   // Setup a delayed profile startup
   osal_set_event( biscuit_TaskID, SBP_START_DEVICE_EVT );
@@ -596,7 +596,10 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
   case GAPROLE_ADVERTISING:
     {
       debugPrintLine("Started advertising");
-     
+
+      uint8 stat = getStatus_();
+      debugPrintRaw(&stat);
+
       
     }
     break;
@@ -687,9 +690,10 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
   case GAP_DEVICE_DISCOVERY_EVENT:
     {
       discoveryEvent++;
-      GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
+      /*GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
                                                  DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                                 DEFAULT_DISCOVERY_WHITE_LIST );
+                                                 DEFAULT_DISCOVERY_WHITE_LIST );*/
+
       
     }
     break;
@@ -717,7 +721,8 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 */
 static void performPeriodicTask( void )
 {
-	uint8 networkName[25];
+
+	/*uint8 networkName[25];
 	uint8 nodeName[20];
         uint24 netID = eeprom_read_long(NETWORK_ID_ADR);
         uint16 nodID = (uint16) eeprom_read_long(NODE_ID_ADR);
@@ -731,8 +736,49 @@ static void performPeriodicTask( void )
         debugPrintLine("Network ID:");
         debugPrintRaw((uint8*)&netID);
         debugPrintLine("Node ID:");
-        debugPrintRaw((uint8*)&nodID);
+        debugPrintRaw((uint8*)&nodID);*/
         
+
+  debugPrintLine("Long size");
+  uint8 h = sizeof(uint32);
+  debugPrintRaw(&h);
+  eeprom_page_write(5, 0x01, 0x02, 0x03, 0x4);
+  long unsigned i = eeprom_read_page(5);
+  uint8 u1 = (uint8) (i >> 24);
+  uint8 u2 = (uint8) (i >> 16);
+  uint8 u3 = (uint8) (i >> 8);
+  uint8 u4 = (uint8) i;
+  
+  /*uint8 u1, u2 = 0, u3 = 0, u4 = 0;
+  eeprom_read_page_bytes(5, &u1, &u2, &u3, &u4);*/
+  debugPrintLine("Data: ");
+  if(u1 == 0xFF) {
+    debugPrintLine("FF");
+  } else {
+    debugPrintRaw(&u1);
+  }
+  if(u2 == 0xFF) {
+    debugPrintLine("FF");
+  } else {
+    debugPrintRaw(&u2);
+  }
+  if(u3 == 0xFF) {
+    debugPrintLine("FF");
+  } else {
+    debugPrintRaw(&u3);
+  }
+  if(u4 == 0xFF) {
+    debugPrintLine("FF");
+  } else {
+    debugPrintRaw(&u4);
+  }
+  
+  /*bStatus_t ret = GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
+                                                 DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                                 DEFAULT_DISCOVERY_WHITE_LIST );
+
+*/
+
 }
 
 /*********************************************************************
