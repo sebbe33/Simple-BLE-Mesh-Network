@@ -45,6 +45,11 @@ extern "C"
 #define SBP_RX_TIME_OUT_EVT                               0x0004
 #define SBP_ADV_IN_CONNECTION_EVT                         0x0004
 
+#define NETWORK_ID_ADR		1
+#define NODE_ID_ADR			5
+#define NETWORK_NAME_ADR	7
+#define NODE_NAME_ADR		27
+
 /*********************************************************************
  * MACROS
  */

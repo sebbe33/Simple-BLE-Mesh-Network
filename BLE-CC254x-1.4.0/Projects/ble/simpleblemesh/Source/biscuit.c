@@ -31,10 +31,6 @@ SOFTWARE.
 #include "OSAL_PwrMgr.h"
 
 #include "OnBoard.h"
-#include "hal_adc.h"
-#include "hal_led.h"
-#include "hal_key.h"
-#include "hal_lcd.h"
 
 #include "gatt.h"
 
@@ -42,7 +38,7 @@ SOFTWARE.
 
 #include "gapgattserver.h"
 #include "gattservapp.h"
-#include "devinfoservice.h"
+//#include "devinfoservice.h"
 
 #include "peripheralObserverProfile.h"
 
@@ -150,8 +146,6 @@ static uint8 RXBuf[MAX_RX_LEN];
 static uint8 rxLen = 0;
 static uint8 rxHead = 0, rxTail = 0;
 
-static uint24 networkID = 0;
-
 // GAP - SCAN RSP data (max size = 31 bytes)
 static uint8 scanRspData[] =
 {
@@ -180,11 +174,12 @@ static uint8 advertData[31] =
   DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
   
   // complete name 
-  9,   // length of this data
+  11,   // length of this data
   GAP_ADTYPE_LOCAL_NAME_COMPLETE,
-  'B','L','E',' ','M','i','n','i',
+  'B','L','E',' ','M','a','n','o','a','b',
   
-};              
+};
+
 
 // GAP GATT Attributes
 static uint8 attDeviceName[GAP_DEVICE_NAME_LEN] = "BLE Mini";
@@ -304,53 +299,62 @@ void Biscuit_Init( uint8 task_id )
     GAPRole_SetParameter( GAPROLE_TIMEOUT_MULTIPLIER, sizeof( uint16 ), &desired_conn_timeout );
   }
   
+     i2c_init();
+	
+	
+	//#define setup
+	#ifdef setup
+		uint24 networkID = 666;
+		uint16 nodeID = 11;
+		uint8 networkName[20] = "ehmarine";
+		uint8 nodeName[20] = "node1";
+	
+		eeprom_write_long(NETWORK_ID_ADR, &networkID, sizeof(uint24));
+		eeprom_write_long(NODE_ID_ADR, &nodeID, sizeof(uint16));
+		eeprom_write_bytes(NETWORK_NAME_ADR, (uint8*)networkName, sizeof(networkName));
+		eeprom_write_bytes(NODE_NAME_ADR, (uint8*)nodeName, sizeof(nodeName));
+	#else
+		uint24 networkID;
+		uint16 nodeID;
+		
+                uint8 networkName[31] =
+		{
+			// Flags; this sets the device to use limited discoverable
+			// mode (advertises for 30 seconds at a time) instead of general
+			// discoverable mode (advertises indefinitely)
+			0x02,   // length of this data
+			GAP_ADTYPE_FLAGS,
+			DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
+		  
+			// complete name 
+			18,   // length of this data
+			GAP_ADTYPE_LOCAL_NAME_COMPLETE, 
+			networkID >> 16,
+			networkID >> 8,
+			networkID & 0x0000FF };
+			
+		uint8 nodeName[20];
+                
+                for (int i =0; i<20;i++){
+                  networkName[8+i]=eeprom_read(NETWORK_NAME_ADR+i);
+                }
+                eeprom_read_bytes(NETWORK_NAME_ADR, (uint8*)&networkName[8], sizeof(networkName));
+		eeprom_read_bytes(NODE_NAME_ADR, (uint8*)nodeName, sizeof(nodeName));		
+		GAPRole_SetParameter( GAPROLE_ADVERT_DATA, 25, networkName );
+	#endif
+	
+	
+  
+  
   // Setup observer related GAP profile properties
   {
     uint8 scanRes = DEFAULT_MAX_SCAN_RES;
     GAPRole_SetParameter(GAPOBSERVERROLE_MAX_SCAN_RES, sizeof( uint8 ), &scanRes);
   }
   
-  i2c_init();
+ 
   
-  // Set the GAP Characteristics
-  uint8 nameFlag = eeprom_read(4);
-  uint8 nameLen = eeprom_read(5);
-  if( (nameFlag!=1) || (nameLen>20) )        // First time power up after burning firmware  
-  {
-    GGS_SetParameter( GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, attDeviceName );
-    uint8 len = strlen( (char const *)attDeviceName );
-    MESH_SetParameter( DEV_NAME_CHAR, len, attDeviceName );
     
-    eeprom_write(4, 1);
-    eeprom_write(5, len);
-    for(uint8 i=0; i<len; i++)
-    {
-      eeprom_write(i+8, attDeviceName[i]);
-    }
-  }
-  else
-  {    
-    uint8 devName[GAP_DEVICE_NAME_LEN];
-    for(uint8 i=0; i<nameLen; i++)
-    {
-      devName[i] = eeprom_read(i+8);
-    }
-    devName[nameLen] = '\0';
-    GGS_SetParameter( GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, devName );
-    MESH_SetParameter( DEV_NAME_CHAR, nameLen, devName );
-  } 
-  
-  uint8 LocalName[GAP_DEVICE_NAME_LEN];
-  nameLen = eeprom_read(5);
-  for(uint8 i=0; i<nameLen; i++)
-  {
-    LocalName[i] = eeprom_read(i+8);
-  }
-  advertData[3] = nameLen + 1;  
-  //osal_memcpy(&advertData[5], LocalName, nameLen);  
-  //osal_memset(&advertData[nameLen+5], 0, 31-5-nameLen);
-  GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( advertData ), advertData );
-  
   // Set advertising interval
   {
     uint16 advInt = DEFAULT_ADVERTISING_INTERVAL;
@@ -385,37 +389,7 @@ void Biscuit_Init( uint8 task_id )
   GATTServApp_AddService( GATT_ALL_SERVICES );    // GATT attributes
   //DevInfo_AddService();                           // Device Information Service
   MESH_AddService( GATT_ALL_SERVICES );  // Simple GATT Profile
-#if defined FEATURE_OAD
-  VOID OADTarget_AddService();                    // OAD Profile
-#endif
-  
-#if defined( CC2540_MINIDK )
-  
-  // Register for all key events - This app will handle all key events
-  RegisterForKeys( biscuit_TaskID );
-  
-  // makes sure LEDs are off
-  HalLedSet( (HAL_LED_1 | HAL_LED_2), HAL_LED_MODE_OFF );
-  
-  // For keyfob board set GPIO pins into a power-optimized state
-  // Note that there is still some leakage current from the buzzer,
-  // accelerometer, LEDs, and buttons on the PCB.
-  
-  P0SEL = 0; // Configure Port 0 as GPIO
-  P1SEL = 0; // Configure Port 1 as GPIO
-  P2SEL = 0; // Configure Port 2 as GPIO
-  
-  P0DIR = 0xFC; // Port 0 pins P0.0 and P0.1 as input (buttons),
-  // all others (P0.2-P0.7) as output
-  P1DIR = 0xFF; // All port 1 pins (P1.0-P1.7) as output
-  P2DIR = 0x1F; // All port 1 pins (P2.0-P2.4) as output
-  
-  P0 = 0x03; // All pins on port 0 to low except for P0.0 and P0.1 (buttons)
-  P1 = 0;   // All pins on port 1 to low
-  P2 = 0;   // All pins on port 2 to low
-  
-#endif // #if defined( CC2540_MINIDK )
-  
+ 
   // Register callback with MESHService
   VOID MESH_RegisterAppCBs( &biscuit_MESHServiceCBs );
   
@@ -431,97 +405,20 @@ void Biscuit_Init( uint8 task_id )
   PERCFG |= 1;
   NPI_InitTransport(dataHandler);
   
-  
-  
-  /*
-  uint8 flag, baud;
-  uint8 value;
-  flag = eeprom_read(0);
-  baud = eeprom_read(1);
-  if( flag!=1 || baud>4 )       // First time power up after burning firmware
+  //Set baudrate
   {
     U0GCR &= 0xE0;      // Default baudrate 57600
     U0GCR |= 0x0A;
     U0BAUD = 216;
-    value = 3;
     
-    eeprom_write(0, 1);
-    eeprom_write(1, 3);
-  }
-  else
-  {
-    switch(baud)
-    {
-    case 0:   //9600
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x08;
-        U0BAUD = 59;
-        value = 0;
-        break;
-      }
-      
-    case 1:   //19200
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x09;
-        U0BAUD = 59;
-        value = 1;
-        break;
-      }
-      
-    case 2:   //38400
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x0A;
-        U0BAUD = 59;
-        value = 2;
-        break;
-      }
-      
-    case 3:   //57600
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x0A;
-        U0BAUD = 216;
-        value = 3;
-        break;
-      }
-      
-    case 4:   //115200
-      {
-        U0GCR &= 0xE0;
-        U0GCR |= 0x0B;
-        U0BAUD = 216;
-        value = 4;
-        break;
-      }
-      
-    default:
-      break;
-    }
-  }
-  MESH_SetParameter( BAUDRATE_CHAR, 1, &value );
-  
-  uint8 flag2, txpwr;
-  flag2 = eeprom_read(2);
-  txpwr = eeprom_read(3);
-  if( flag2!=1 || txpwr>3 )       // First time power up after burning firmware
-  {
-    HCI_EXT_SetTxPowerCmd( HCI_EXT_TX_POWER_0_DBM );
-    txpwr = HCI_EXT_TX_POWER_0_DBM;
     
-    eeprom_write(2, 1);
-    eeprom_write(3, HCI_EXT_TX_POWER_0_DBM);
+    
   }
-  else
-  {
-    HCI_EXT_SetTxPowerCmd( txpwr );
-  }
-  MESH_SetParameter( TX_POWER_CHAR, 1, &txpwr );
-  */
+  //Set txPower
+  HCI_EXT_SetTxPowerCmd( HCI_EXT_TX_POWER_0_DBM );
   
-  initializeMeshConnectionProtocol(0,0,&advertiseCallback, &messageCallback,
+  
+  initializeMeshConnectionProtocol(networkID,nodeID,&advertiseCallback, &messageCallback,
                                    &osal_GetSystemClock);
 
   // Setup a delayed profile startup
@@ -579,7 +476,7 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     // Start Bond Manager
     VOID GAPBondMgr_Register( &biscuit_BondMgrCBs );
     
-    // Set timer for first periodic event
+    // Set timer for first ic event
     osal_start_timerEx( biscuit_TaskID, SBP_PERIODIC_EVT, SBP_PERIODIC_EVT_PERIOD );
     
     
@@ -649,11 +546,6 @@ static void biscuit_ProcessOSALMsg( osal_event_hdr_t *pMsg )
 {
   switch ( pMsg->event )
   {
-#if defined( CC2540_MINIDK )
-  case KEY_CHANGE:
-    biscuit_HandleKeys( ((keyChange_t *)pMsg)->state, ((keyChange_t *)pMsg)->keys );
-    break;
-#endif // #if defined( CC2540_MINIDK )
     
   default:
     // do nothing
@@ -661,24 +553,6 @@ static void biscuit_ProcessOSALMsg( osal_event_hdr_t *pMsg )
   }
 }
 
-#if defined( CC2540_MINIDK )
-/*********************************************************************
-* @fn      biscuit_HandleKeys
-*
-* @brief   Handles all key events for this device.
-*
-* @param   shift - true if in shift/alt.
-* @param   keys - bit field for key events. Valid entries:
-*                 HAL_KEY_SW_2
-*                 HAL_KEY_SW_1
-*
-* @return  none
-*/
-static void biscuit_HandleKeys( uint8 shift, uint8 keys )
-{
-  // do nothing
-}
-#endif // #if defined( CC2540_MINIDK )
 
 /*********************************************************************
 * @fn      peripheralStateNotificationCB
@@ -696,7 +570,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
   {
   case GAPROLE_STARTED:
     {
-      uint8 ownAddress[B_ADDR_LEN];
+      /*uint8 ownAddress[B_ADDR_LEN];
       uint8 systemId[DEVINFO_SYSTEM_ID_LEN];
       
       GAPRole_GetParameter(GAPROLE_BD_ADDR, ownAddress);
@@ -715,20 +589,14 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
       systemId[6] = ownAddress[4];
       systemId[5] = ownAddress[3];
       
-      DevInfo_SetParameter(DEVINFO_SYSTEM_ID, DEVINFO_SYSTEM_ID_LEN, systemId);
+      DevInfo_SetParameter(DEVINFO_SYSTEM_ID, DEVINFO_SYSTEM_ID_LEN, systemId);*/
     }
     break;
     
   case GAPROLE_ADVERTISING:
     {
-      if(infoEvent == 1) {
-        infoEvent = 2;
-        
-        timeHandled = osal_GetSystemClock(); 
-      }
-      /*debugPrintLine("Started advertising");
-      uint8 stat = getStatus_();
-      debugPrintRaw(&stat);*/
+      debugPrintLine("Started advertising");
+     
       
     }
     break;
@@ -756,7 +624,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
   case GAPROLE_WAITING:
     {
       debugPrintLine("GAPROLE_WAITING");
-      uint8 turnOnAdv = TRUE;
+      //uint8 turnOnAdv = TRUE;
       // Turn on advertising while in a connection
       //GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv ); 
     }
@@ -822,23 +690,7 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
       GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
                                                  DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                                  DEFAULT_DISCOVERY_WHITE_LIST );
-      // discovery complete
-      /*simpleBLEScanning = FALSE;
       
-      // Copy results
-      simpleBLEScanRes = pEvent->discCmpl.numDevs;
-      osal_memcpy( simpleBLEDevList, pEvent->discCmpl.pDevList,
-                  (sizeof( gapDevRec_t ) * pEvent->discCmpl.numDevs) );
-      
-      //LCD_WRITE_STRING_VALUE( "Devices Found", simpleBLEScanRes,
-      //                        10, HAL_LCD_LINE_1 );
-      /*if ( simpleBLEScanRes > 0 )
-      {
-      LCD_WRITE_STRING( "<- To Select", HAL_LCD_LINE_2 );
-    }*/
-      
-      // initialize scan index to last device
-      simpleBLEScanIdx = simpleBLEScanRes;
     }
     break;
     
@@ -865,9 +717,22 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 */
 static void performPeriodicTask( void )
 {
-  bStatus_t ret = GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
-                                                 DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                                 DEFAULT_DISCOVERY_WHITE_LIST );
+	uint8 networkName[25];
+	uint8 nodeName[20];
+        uint24 netID = eeprom_read_long(NETWORK_ID_ADR);
+        uint16 nodID = (uint16) eeprom_read_long(NODE_ID_ADR);
+  	eeprom_read_bytes(NETWORK_NAME_ADR, (uint8*)networkName, sizeof(networkName));
+	eeprom_read_bytes(NODE_NAME_ADR, (uint8*)nodeName, sizeof(nodeName));
+        
+	debugPrintLine("Node name:");
+	debugPrintLine(nodeName);
+	debugPrintLine("Network name: ");
+	debugPrintLine(networkName);
+        debugPrintLine("Network ID:");
+        debugPrintRaw((uint8*)&netID);
+        debugPrintLine("Node ID:");
+        debugPrintRaw((uint8*)&nodID);
+        
 }
 
 /*********************************************************************
@@ -889,12 +754,8 @@ static void meshServiceChangeCB( uint8 paramID )
     MESH_GetParameter(RX_MESSAGE_CHAR, &len, data);
     uint8 length = data[0];
 	MessageType type = data[1];
-	uint16 dest = data[2];
-	uint8 message[23];
-	
-	for(int i = 4; i < 27; i++){
-			message[i-4]=data[i];
-	}
+	uint16 dest = (data[3] << 8) | data[2];
+	uint8* message = &data[4];
 	
 	switch(type)
 	{
@@ -915,8 +776,6 @@ static void meshServiceChangeCB( uint8 paramID )
 			sendStatefulMessage(dest, message, length);
 		}
 	}		
-	
-	
   }
   else if (paramID == MESH_RX_NOTI_ENABLED)
   {
@@ -939,6 +798,8 @@ static void meshServiceChangeCB( uint8 paramID )
   }
   else if (paramID == DEV_NAME_CHANGED)
   {
+	  //TODO: Set name
+	 /*
     uint8 newDevName[GAP_DEVICE_NAME_LEN];
     MESH_GetParameter(DEV_NAME_CHAR, &len, newDevName);
     
@@ -957,15 +818,15 @@ static void meshServiceChangeCB( uint8 paramID )
     {
       eeprom_write(i+8, newDevName[i]);
     }
+	*/
   }
   else if (paramID == NETWORK_SET)
   {
     uint24 newNetwork;
     MESH_GetParameter(NETWORK_CHAR, &len, &data);
     newNetwork = (data[2] << 16) | (data[1] << 8) | data[0];
-    osal_memcpy(&networkID, &newNetwork, len);
-	//eeprom_write(??, newNetwork);
-	//TODO: fix address
+    eeprom_write_bytes(NETWORK_ID_ADR, (uint8*)&newNetwork, sizeof(uint24));
+	
 	
   }
 }
@@ -1023,7 +884,7 @@ static void dataHandler( uint8 port, uint8 events )
 static void advertiseCallback(uint8* data, uint8 length)
 {
     GAPObserverRole_StopDiscovery();
-    GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( advertData ), advertData );
+    GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length, data );
     uint8 dummy = TRUE;
     GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy );
 

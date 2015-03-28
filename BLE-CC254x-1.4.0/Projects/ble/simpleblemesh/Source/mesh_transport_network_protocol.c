@@ -1,5 +1,5 @@
 #include "mesh_transport_network_protocol.h"
-#define PROCESSED_MESSAGE_LENGTH 60
+#define PROCESSED_MESSAGE_LENGTH 100
 #define REMOVE_PROCESSED_MESSAGE_AFTER 3000
 #define PENDING_ACK_MAX 10
 #define PENDING_ACK_RESEND_TIMEOUT 1000
@@ -128,28 +128,42 @@ void broadcastMessage(uint8* message, uint8 length)
     }
     
     advertise(data, length + 8);
+	forwardMessageToApp(&message[7], length - 7);
     
 }
 
 void broadcastGroupMessage(uint16 groupDestination, uint8* message, uint8 length)
 {
     uint8 data[32];
+	
     constructDataMessage(data, GROUP_BROADCAST, groupDestination, message, length);
     advertise(data, length + 9);
+	if(isMemberOfGroup(groupDestination)){
+		forwardMessageToApp(&message[9], length - 9);
+	}
 }
 
 void sendStatefulMessage(uint16 destination, uint8* message, uint8 length)
 {
     uint8 data[32];
-    sendStatefulMessageHelper(destination, data, message, length);
+    if(destination==id){
+		forwardMessageToApp(&message[9], length - 9);
+		return;
+	}
+	sendStatefulMessageHelper(destination, data, message, length);
     // Beware destination will be not correct when casting from raw data to 
     // header, but id doesn't matter in this case
     insertPendingACK(data);
+	
 }
 
 void sendStatelessMessage(uint16 destination, uint8* message, uint8 length)
 {
     uint8 data[32];
+	if(destination==id){
+		forwardMessageToApp(&message[9], length - 9);
+		return;
+	}
     constructDataMessage(data, STATELESS_MESSAGE, destination, message, length);
     advertise(data, length + 9);
 }
