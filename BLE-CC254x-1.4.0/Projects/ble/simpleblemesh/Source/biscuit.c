@@ -299,51 +299,58 @@ void Biscuit_Init( uint8 task_id )
     GAPRole_SetParameter( GAPROLE_TIMEOUT_MULTIPLIER, sizeof( uint16 ), &desired_conn_timeout );
   }
   
-     i2c_init();
-	
-	
-	//#define setup
-	#ifdef setup
-		uint24 networkID = 666;
-		uint16 nodeID = 11;
-		uint8 networkName[20] = "ehmarine";
-		uint8 nodeName[20] = "node1";
-	
-		eeprom_write_long(NETWORK_ID_ADR, &networkID, sizeof(uint24));
-		eeprom_write_long(NODE_ID_ADR, &nodeID, sizeof(uint16));
-		eeprom_write_bytes(NETWORK_NAME_ADR, (uint8*)networkName, sizeof(networkName));
-		eeprom_write_bytes(NODE_NAME_ADR, (uint8*)nodeName, sizeof(nodeName));
-	#else
-		uint24 networkID;
-		uint16 nodeID;
-		
-                uint8 networkName[31] =
-		{
-			// Flags; this sets the device to use limited discoverable
-			// mode (advertises for 30 seconds at a time) instead of general
-			// discoverable mode (advertises indefinitely)
-			0x02,   // length of this data
-			GAP_ADTYPE_FLAGS,
-			DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
-		  
-			// complete name 
-			18,   // length of this data
-			GAP_ADTYPE_LOCAL_NAME_COMPLETE, 
-			networkID >> 16,
-			networkID >> 8,
-			networkID & 0x0000FF };
-			
-		uint8 nodeName[20];
-                
-                for (int i =0; i<20;i++){
-                  networkName[8+i]=eeprom_read(NETWORK_NAME_ADR+i);
-                }
-                eeprom_read_bytes(NETWORK_NAME_ADR, (uint8*)&networkName[8], sizeof(networkName));
-		eeprom_read_bytes(NODE_NAME_ADR, (uint8*)nodeName, sizeof(nodeName));		
-		GAPRole_SetParameter( GAPROLE_ADVERT_DATA, 25, networkName );
-	#endif
-	
-	
+  i2c_init();
+  
+  
+  
+//#define setup
+#ifdef setup
+  uint24 networkID = 666;
+  uint16 nodeID = 11;
+  uint8 networkName[20] = "ehmarineehmarine";
+  uint8 nodeName[20] = "node1";
+  
+  eeprom_write_long(NETWORK_ID_ADR, networkID);
+  eeprom_write_long(NODE_ID_ADR, nodeID);
+  eeprom_write_bytes(NETWORK_NAME_ADR, networkName, sizeof(networkName));
+  eeprom_write_bytes(NODE_NAME_ADR, nodeName, sizeof(nodeName));
+#else
+  
+  uint24 networkID = eeprom_read_long(NETWORK_ID_ADR);
+  uint16 nodeID = (uint16) eeprom_read_long(NODE_ID_ADR);
+  
+  
+  uint8 networkName[31] =
+  {
+    // Flags; this sets the device to use limited discoverable
+    // mode (advertises for 30 seconds at a time) instead of general
+    // discoverable mode (advertises indefinitely)
+    0x02,   // length of this data
+    GAP_ADTYPE_FLAGS,
+    DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
+    
+    // complete name 
+    18,   // length of this data
+    GAP_ADTYPE_LOCAL_NAME_COMPLETE, 
+    (uint8) ((networkID >> 16) & 0xFF),
+    (uint8) ((networkID >> 8) & 0xFF),
+    (uint8) networkID};
+  
+  uint8 nodeName[20];
+  
+  eeprom_read_bytes(NETWORK_NAME_ADR, &networkName[8], sizeof(networkName));
+  //eeprom_read_bytes(NODE_NAME_ADR, (uint8*)nodeName, sizeof(nodeName));		
+  GAPRole_SetParameter( GAPROLE_ADVERT_DATA, 25, networkName );
+  
+  initializeMeshConnectionProtocol(networkID,nodeID,&advertiseCallback, &messageCallback, &osal_GetSystemClock);
+
+#endif
+  
+  
+  
+  
+  
+  
   
   
   // Setup observer related GAP profile properties
@@ -352,9 +359,9 @@ void Biscuit_Init( uint8 task_id )
     GAPRole_SetParameter(GAPOBSERVERROLE_MAX_SCAN_RES, sizeof( uint8 ), &scanRes);
   }
   
- 
   
-    
+  
+  
   // Set advertising interval
   {
     uint16 advInt = DEFAULT_ADVERTISING_INTERVAL;
@@ -389,7 +396,7 @@ void Biscuit_Init( uint8 task_id )
   GATTServApp_AddService( GATT_ALL_SERVICES );    // GATT attributes
   //DevInfo_AddService();                           // Device Information Service
   MESH_AddService( GATT_ALL_SERVICES );  // Simple GATT Profile
- 
+  
   // Register callback with MESHService
   VOID MESH_RegisterAppCBs( &biscuit_MESHServiceCBs );
   
@@ -405,7 +412,7 @@ void Biscuit_Init( uint8 task_id )
   PERCFG |= 1;
   NPI_InitTransport(dataHandler);
   
-
+  
   //Set baudrate
   {
     U0GCR &= 0xE0;      // Default baudrate 57600
@@ -419,8 +426,11 @@ void Biscuit_Init( uint8 task_id )
   HCI_EXT_SetTxPowerCmd( HCI_EXT_TX_POWER_0_DBM );
   
   
-  initializeMeshConnectionProtocol(networkID,nodeID,&advertiseCallback, &messageCallback,
-
+  
+  
+  
+  
+  
   // Setup a delayed profile startup
   osal_set_event( biscuit_TaskID, SBP_START_DEVICE_EVT );
 }
@@ -478,8 +488,6 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     
     // Set timer for first ic event
     osal_start_timerEx( biscuit_TaskID, SBP_PERIODIC_EVT, SBP_PERIODIC_EVT_PERIOD );
-    
-    
     
     return ( events ^ SBP_START_DEVICE_EVT );
   }
@@ -596,10 +604,10 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
   case GAPROLE_ADVERTISING:
     {
       debugPrintLine("Started advertising");
-
+      
       uint8 stat = getStatus_();
       debugPrintRaw(&stat);
-
+      
       
     }
     break;
@@ -607,19 +615,19 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
   case GAPROLE_CONNECTED:
     { 
       debugPrintLine("GAPROLE_CONNECTED");
-             
+      
       
       // Only turn advertising on for this state when we first connect
       // otherwise, when we go from connected_advertising back to this state
       // we will be turning advertising back on.
-
+      
       uint8 turnOnAdv = FALSE;
       // Turn on advertising while in a connection
       GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv );      
     }
     break;
     
-    case GAPROLE_CONNECTED_ADV:
+  case GAPROLE_CONNECTED_ADV:
     {
       debugPrintLine("GAPROLE_CONNECTED_ADV");
     }
@@ -683,7 +691,7 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
       processIncomingMessage(data, dataLen);
       
       //debugPrintLine("Device found");
-
+      
     }
     break;
     
@@ -691,9 +699,9 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
     {
       discoveryEvent++;
       /*GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
-                                                 DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                                 DEFAULT_DISCOVERY_WHITE_LIST );*/
-
+      DEFAULT_DISCOVERY_ACTIVE_SCAN,
+      DEFAULT_DISCOVERY_WHITE_LIST );*/
+      
       
     }
     break;
@@ -721,64 +729,9 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 */
 static void performPeriodicTask( void )
 {
-
-	/*uint8 networkName[25];
-	uint8 nodeName[20];
-        uint24 netID = eeprom_read_long(NETWORK_ID_ADR);
-        uint16 nodID = (uint16) eeprom_read_long(NODE_ID_ADR);
-  	eeprom_read_bytes(NETWORK_NAME_ADR, (uint8*)networkName, sizeof(networkName));
-	eeprom_read_bytes(NODE_NAME_ADR, (uint8*)nodeName, sizeof(nodeName));
-        
-	debugPrintLine("Node name:");
-	debugPrintLine(nodeName);
-	debugPrintLine("Network name: ");
-	debugPrintLine(networkName);
-        debugPrintLine("Network ID:");
-        debugPrintRaw((uint8*)&netID);
-        debugPrintLine("Node ID:");
-        debugPrintRaw((uint8*)&nodID);*/
-        
-
-  debugPrintLine("Long size");
-  uint8 h = sizeof(uint32);
-  debugPrintRaw(&h);
-  eeprom_page_write(5, 0x01, 0x02, 0x03, 0x4);
-  long unsigned i = eeprom_read_page(5);
-  uint8 u1 = (uint8) (i >> 24);
-  uint8 u2 = (uint8) (i >> 16);
-  uint8 u3 = (uint8) (i >> 8);
-  uint8 u4 = (uint8) i;
+ 
   
-  /*uint8 u1, u2 = 0, u3 = 0, u4 = 0;
-  eeprom_read_page_bytes(5, &u1, &u2, &u3, &u4);*/
-  debugPrintLine("Data: ");
-  if(u1 == 0xFF) {
-    debugPrintLine("FF");
-  } else {
-    debugPrintRaw(&u1);
-  }
-  if(u2 == 0xFF) {
-    debugPrintLine("FF");
-  } else {
-    debugPrintRaw(&u2);
-  }
-  if(u3 == 0xFF) {
-    debugPrintLine("FF");
-  } else {
-    debugPrintRaw(&u3);
-  }
-  if(u4 == 0xFF) {
-    debugPrintLine("FF");
-  } else {
-    debugPrintRaw(&u4);
-  }
   
-  /*bStatus_t ret = GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
-                                                 DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                                 DEFAULT_DISCOVERY_WHITE_LIST );
-
-*/
-
 }
 
 /*********************************************************************
@@ -799,29 +752,29 @@ static void meshServiceChangeCB( uint8 paramID )
   {
     MESH_GetParameter(RX_MESSAGE_CHAR, &len, data);
     uint8 length = data[0];
-	MessageType type = data[1];
-	uint16 dest = (data[3] << 8) | data[2];
-	uint8* message = &data[4];
-	
-	switch(type)
-	{
-		case BROADCAST:
-		{
-			broadcastMessage(message, length);
-		}
-		case GROUP_BROADCAST:
-		{
-			broadcastGroupMessage(dest, message, length);
-		}
-		case STATELESS_MESSAGE:
-		{
-			sendStatelessMessage(dest, message, length);
-		}
-		case STATEFUL_MESSAGE:
-		{
-			sendStatefulMessage(dest, message, length);
-		}
-	}		
+    MessageType type = data[1];
+    uint16 dest = (data[3] << 8) | data[2];
+    uint8* message = &data[4];
+    
+    switch(type)
+    {
+    case BROADCAST:
+      {
+        broadcastMessage(message, length);
+      }
+    case GROUP_BROADCAST:
+      {
+        broadcastGroupMessage(dest, message, length);
+      }
+    case STATELESS_MESSAGE:
+      {
+        sendStatelessMessage(dest, message, length);
+      }
+    case STATEFUL_MESSAGE:
+      {
+        sendStatefulMessage(dest, message, length);
+      }
+    }		
   }
   else if (paramID == MESH_RX_NOTI_ENABLED)
   {
@@ -832,20 +785,20 @@ static void meshServiceChangeCB( uint8 paramID )
   {
     uint16 newGroup;
     MESH_GetParameter(JOIN_GROUP_CHAR, &len, &newGroup);
-	joinGroup(newGroup);
-	
+    joinGroup(newGroup);
+    
   }
   else if (paramID == LEAVE_GROUP_SET)
   {
     uint16 oldGroup;
     MESH_GetParameter(LEAVE_GROUP_CHAR, &len, &oldGroup);
-	leaveGroup(oldGroup);
-	
+    leaveGroup(oldGroup);
+    
   }
   else if (paramID == DEV_NAME_CHANGED)
   {
-	  //TODO: Set name
-	 /*
+    //TODO: Set name
+    /*
     uint8 newDevName[GAP_DEVICE_NAME_LEN];
     MESH_GetParameter(DEV_NAME_CHAR, &len, newDevName);
     
@@ -862,18 +815,18 @@ static void meshServiceChangeCB( uint8 paramID )
     eeprom_write(5, len);
     for(uint8 i=0; i<len; i++)
     {
-      eeprom_write(i+8, newDevName[i]);
-    }
-	*/
+    eeprom_write(i+8, newDevName[i]);
+  }
+    */
   }
   else if (paramID == NETWORK_SET)
   {
     uint24 newNetwork;
     MESH_GetParameter(NETWORK_CHAR, &len, &data);
     newNetwork = (data[2] << 16) | (data[1] << 8) | data[0];
-    eeprom_write_bytes(NETWORK_ID_ADR, (uint8*)&newNetwork, sizeof(uint24));
-	
-	
+    //eeprom_write_bytes(NETWORK_ID_ADR, (uint8*)&newNetwork, sizeof(uint24));
+    //TODO
+    
   }
 }
 
@@ -929,13 +882,13 @@ static void dataHandler( uint8 port, uint8 events )
 
 static void advertiseCallback(uint8* data, uint8 length)
 {
-    GAPObserverRole_StopDiscovery();
-    GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length, data );
-    uint8 dummy = TRUE;
-    GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy );
-
+  GAPObserverRole_StopDiscovery();
+  GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length, data );
+  uint8 dummy = TRUE;
+  GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy );
+  
 }
 static void messageCallback(uint8* data, uint8 length)
 {
-
+  
 }

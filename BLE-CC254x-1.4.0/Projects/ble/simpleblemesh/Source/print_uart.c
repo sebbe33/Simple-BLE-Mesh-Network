@@ -19,14 +19,14 @@ void debugPrintLine(char* charSequence)
 
 void debugPrintRaw(uint8* data)
 {
-  uint8 rawinit = 0xFF;
+  uint8 rawinit = 0xFE;
   HalUARTWrite(NPI_UART_PORT, &rawinit, 1); 
   HalUARTWrite (NPI_UART_PORT, data, 1);
   HalUARTWrite(NPI_UART_PORT, &rawinit, 1); 
 }
 
 void debugPrintRawArray(uint8* data, uint8 len){
-  uint8 rawinit = 0xFF;
+  uint8 rawinit = 0xFE;
   HalUARTWrite(NPI_UART_PORT, &rawinit, 1); 
   HalUARTWrite(NPI_UART_PORT, data, len); 
   HalUARTWrite(NPI_UART_PORT, &rawinit, 1); 
