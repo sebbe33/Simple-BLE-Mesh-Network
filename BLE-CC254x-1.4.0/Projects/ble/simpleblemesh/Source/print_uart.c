@@ -24,6 +24,22 @@ void debugPrintRaw(uint8* data)
   HalUARTWrite (NPI_UART_PORT, data, 1);
   HalUARTWrite(NPI_UART_PORT, &rawinit, 1); 
 }
+  
+void debugPrintRaw16(uint16* data)
+{
+  uint8 rawinit = 0xFD;
+  HalUARTWrite(NPI_UART_PORT, &rawinit, 1); 
+  HalUARTWrite (NPI_UART_PORT, (uint8*)data, 2);
+  
+}
+
+void debugPrintRaw32(uint32* data)
+{
+  uint8 rawinit = 0xFC;
+  HalUARTWrite(NPI_UART_PORT, &rawinit, 1); 
+  HalUARTWrite (NPI_UART_PORT, (uint8*)data, 4);
+  
+}
 
 void debugPrintRawArray(uint8* data, uint8 len){
   uint8 rawinit = 0xFE;
