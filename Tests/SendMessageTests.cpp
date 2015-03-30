@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 #include "mesh_transport_network_protocol.h"
 #include <iostream>
-
+#define HEADER_SIZE sizeof(MessageHeader)
 using namespace std;
 
 int TNPTest::advertisingCalls = 0, 
@@ -11,7 +11,7 @@ uint32 TNPTest::timestamp = 0;
 uint8 TNPTest::advertisingData[20][32] = {0}, TNPTest::messageData[20][23] = {0};
 
 TEST_F(TNPTest, BroadcastTest) {
-    uint24 networkID = 0xFACB;
+    uint16 networkID = 0xFACB;
     uint16 nodeId = 0xC89A;
     initializeMeshConnectionProtocol(networkID, nodeId, 
             &TNPTest::advertiseCallback, &TNPTest::messageCallback,
@@ -22,7 +22,7 @@ TEST_F(TNPTest, BroadcastTest) {
     
     // Check right amount of callbacks
     ASSERT_EQ(1, TNPTest::advertisingCalls);
-    ASSERT_EQ(0, TNPTest::messageCallbacks);
+    ASSERT_EQ(1, TNPTest::messageCallbacks);
 
     // Check header data
     MessageHeader* header = (MessageHeader*) advertisingData[0];
@@ -32,11 +32,11 @@ TEST_F(TNPTest, BroadcastTest) {
     ASSERT_EQ(length, header->length);
     
     // Check content
-    TNPTest::validateData(data, &advertisingData[0][7], length);
+    TNPTest::validateData(data, &advertisingData[0][6], length);
 }
 
 TEST_F(TNPTest, GroupBroadcastTest) {
-    uint24 networkID = 0xAAEB81;
+    uint16 networkID = 0xEB81;
     uint16 nodeId = 0x82AB, destination = 0x2EB1;
     initializeMeshConnectionProtocol(networkID, nodeId, 
             &TNPTest::advertiseCallback, &TNPTest::messageCallback,
@@ -55,11 +55,17 @@ TEST_F(TNPTest, GroupBroadcastTest) {
         length, advertisingData[0]);
     
     // Check content
-    TNPTest::validateData(data, &advertisingData[0][9], length);
+    TNPTest::validateData(data, &advertisingData[0][HEADER_SIZE], length);
+    
+    // Become member of group and make sure the broadcast is forwarded
+    joinGroup(destination);
+    broadcastGroupMessage(destination, data, length);
+    ASSERT_EQ(2, TNPTest::advertisingCalls);
+    ASSERT_EQ(1, TNPTest::messageCallbacks);
 }
 
 TEST_F(TNPTest, StatelessMessageTest) {
-    uint24 networkID = 0x281BFA;
+    uint16 networkID = 0x1BFA;
     uint16 nodeId = 0xB910, destination = 0x8271;
     initializeMeshConnectionProtocol(networkID, nodeId, 
             &TNPTest::advertiseCallback, &TNPTest::messageCallback,
@@ -78,11 +84,16 @@ TEST_F(TNPTest, StatelessMessageTest) {
         length, advertisingData[0]);
     
     // Check content
-    TNPTest::validateData(data, &advertisingData[0][9], length);
+    TNPTest::validateData(data, &advertisingData[0][HEADER_SIZE], length);
+    
+    // Check forward if the message is to self
+    sendStatelessMessage(nodeId, data, length);
+    ASSERT_EQ(1, TNPTest::advertisingCalls);
+    ASSERT_EQ(1, TNPTest::messageCallbacks);
 }
 
 TEST_F(TNPTest, StatefulMessageTest) {
-    uint24 networkID = 0x738FA9;
+    uint16 networkID = 0x8FA9;
     uint16 nodeId = 0x0918, destination = 0x8211;
     initializeMeshConnectionProtocol(networkID, nodeId, 
             &TNPTest::advertiseCallback, &TNPTest::messageCallback,
@@ -101,6 +112,11 @@ TEST_F(TNPTest, StatefulMessageTest) {
         length, advertisingData[0]);
     
     // Check content
-    TNPTest::validateData(data, &advertisingData[0][9], length);
+    TNPTest::validateData(data, &advertisingData[0][HEADER_SIZE], length);
+    
+    // Check forward if the message is to self
+    sendStatefulMessage(nodeId, data, length);
+    ASSERT_EQ(1, TNPTest::advertisingCalls);
+    ASSERT_EQ(1, TNPTest::messageCallbacks);
 }
 

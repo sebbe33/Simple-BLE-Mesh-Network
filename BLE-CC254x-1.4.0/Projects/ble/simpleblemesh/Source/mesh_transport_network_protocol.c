@@ -4,9 +4,10 @@
 #define PENDING_ACK_MAX 10
 #define PENDING_ACK_RESEND_TIMEOUT 1000
 #define GROUP_MEMBERSHIP_MAX 40
-
+#define HEADER_SIZE sizeof(MessageHeader)
+#include <stdio.h>
 /* Private varialbles */
-static uint24 networkIdentifier; 
+static uint16 networkIdentifier; 
 static uint16 id;
 static advertiseDataFunction advertise;
 static onMessageRecieved forwardMessageToApp;
@@ -37,7 +38,7 @@ static void resendNonACKedMessages();
 static void sendStatefulMessageHelper(uint16 destination, uint8* data, 
         uint8* message, uint8 length);
 
-void initializeMeshConnectionProtocol(uint24 networkId, 
+void initializeMeshConnectionProtocol(uint16 networkId, 
 	uint16 deviceIdentifier, 
 	advertiseDataFunction dataFunction, 
 	onMessageRecieved messageCallback,
@@ -62,42 +63,40 @@ void initializeMeshConnectionProtocol(uint24 networkId,
 void processIncomingMessage(uint8* message, uint8 length) 
 {
 	// If invalid message
-	if(length < 7) return;
+	if(length < 6) return;
 
 	MessageHeader* header = (MessageHeader*) message;
-
 	// Check if the message is addressed to this network
 	if(networkIdentifier != header->networkIdentifier) 
         return;
     
     if(hasProccesedMessage(header)) 
         return;
-    
-    uint16 destination = (message[8] << 8) | message[7];
+
 	if(header->type == BROADCAST) 
 	{
         // Forward message to the rest of the network
         advertise(message, length);
         // Forward to application
-		forwardMessageToApp(&message[7], length - 7);
+		forwardMessageToApp(&message[6], length - 6);
 	} 
-	else if (header->type == GROUP_BROADCAST && isMemberOfGroup(destination)) 
+	else if (header->type == GROUP_BROADCAST && isMemberOfGroup(header->destination)) 
 	{
         advertise(message, length);
-		forwardMessageToApp(&message[9], length - 9);
+		forwardMessageToApp(&message[HEADER_SIZE], length - HEADER_SIZE);
 	} 
-	else if(destination == id) 
+	else if(header->destination == id) 
 	{
 		switch (header->type) 
 		{
 			case STATELESS_MESSAGE:
-				forwardMessageToApp(&message[9], length - 9);
+				forwardMessageToApp(&message[HEADER_SIZE], length - HEADER_SIZE);
 				break;
 	  		case STATEFUL_MESSAGE:
-                forwardMessageToApp(&message[9], length - 9);
+                forwardMessageToApp(&message[HEADER_SIZE], length - HEADER_SIZE);
                 // Send ACK
                 constructDataMessage(message, STATEFUL_MESSAGE_ACK, header->source, &header->sequenceID, 1);
-                advertise(message, 9);
+                advertise(message, HEADER_SIZE + 1);
 	  			break;
 	  		case STATEFUL_MESSAGE_ACK:
 	  			removePendingACK(message);
@@ -123,13 +122,12 @@ void broadcastMessage(uint8* message, uint8 length)
     header->sequenceID = currentSequenceId++;
     header->source = id;
     
-    for(char i = 7; i < 7 + length; i++) {
-        data[i] = message[i-7];
+    for(char i = 6; i < 6 + length; i++) {
+        data[i] = message[i-6];
     }
     
-    advertise(data, length + 8);
-	forwardMessageToApp(&message[7], length - 7);
-    
+    advertise(data, length + 6);
+	forwardMessageToApp(message, length);
 }
 
 void broadcastGroupMessage(uint16 groupDestination, uint8* message, uint8 length)
@@ -137,9 +135,9 @@ void broadcastGroupMessage(uint16 groupDestination, uint8* message, uint8 length
     uint8 data[32];
 	
     constructDataMessage(data, GROUP_BROADCAST, groupDestination, message, length);
-    advertise(data, length + 9);
+    advertise(data, length + HEADER_SIZE);
 	if(isMemberOfGroup(groupDestination)){
-		forwardMessageToApp(&message[9], length - 9);
+		forwardMessageToApp(message, length);
 	}
 }
 
@@ -147,7 +145,7 @@ void sendStatefulMessage(uint16 destination, uint8* message, uint8 length)
 {
     uint8 data[32];
     if(destination==id){
-		forwardMessageToApp(&message[9], length - 9);
+		forwardMessageToApp(message, length);
 		return;
 	}
 	sendStatefulMessageHelper(destination, data, message, length);
@@ -161,11 +159,11 @@ void sendStatelessMessage(uint16 destination, uint8* message, uint8 length)
 {
     uint8 data[32];
 	if(destination==id){
-		forwardMessageToApp(&message[9], length - 9);
+		forwardMessageToApp(message, length);
 		return;
 	}
     constructDataMessage(data, STATELESS_MESSAGE, destination, message, length);
-    advertise(data, length + 9);
+    advertise(data, length + HEADER_SIZE);
 }
 
 void destructMeshConnectionProtocol()
@@ -264,12 +262,8 @@ void constructDataMessage(uint8* data, MessageType type, uint16 destination, uin
     header->source = id;
     header->destination = destination;
     
-    // Compensate for struct padding, shift destination bytes 1 byte to the left
-    data[7] = data[8];
-    data[8] = data[9];
-    
-    for(char i = 9; i < 9 + length; i++) {
-        data[i] = message[i-9];
+    for(char i = HEADER_SIZE; i < HEADER_SIZE + length; i++) {
+        data[i] = message[i-HEADER_SIZE];
     }
 }
 
@@ -294,7 +288,7 @@ static void resendNonACKedMessages()
 static void sendStatefulMessageHelper(uint16 destination, uint8* data, uint8* message, uint8 length) 
 {
     constructDataMessage(data, STATEFUL_MESSAGE, destination, message, length);
-    advertise(data, length + 9);
+    advertise(data, length + HEADER_SIZE);
 }
 
 void clearProcessedMessages()
@@ -345,16 +339,15 @@ static void insertPendingACK(uint8* message)
     } else {
         lastPendingACKIndex = i;
     }
-    uint16 destination = (message[8] << 8) | message[7];
     pendingACKS[i].sequenceId = messageHeader->sequenceID;
-    pendingACKS[i].destination = destination;
+    pendingACKS[i].destination = messageHeader->destination;
     pendingACKS[i].time = getSystemTimestamp();
     pendingACKS[i].length = messageHeader->length;
     pendingACKS[i].message = pendingACKMessages[i];
     // TODO : Replace by memcpy
     for(uint8 u = 0; u < messageHeader->length; u++) 
     {
-        pendingACKMessages[i][u] = message[u+9];
+        pendingACKMessages[i][u] = message[u+HEADER_SIZE];
     }
 }
 
@@ -364,7 +357,7 @@ static void removePendingACK(uint8* message)
     for(uint8 i = 0; i < PENDING_ACK_MAX; i++) 
     {
         if(messageHeader->source == pendingACKS[i].destination
-            && message[9] == pendingACKS[i].sequenceId) {
+            && message[HEADER_SIZE] == pendingACKS[i].sequenceId) {
             pendingACKS[i].destination = 0;
         }
     }
@@ -372,7 +365,7 @@ static void removePendingACK(uint8* message)
 
 static uint8 isMemberOfGroup(uint16 group) 
 {
-    for(uint8 i = 0; i < groupMemberIndex; i = 0)
+    for(uint8 i = 0; i < groupMemberIndex; i++)
     {
         if(groupMemberships[i] == group)
             return TRUE;

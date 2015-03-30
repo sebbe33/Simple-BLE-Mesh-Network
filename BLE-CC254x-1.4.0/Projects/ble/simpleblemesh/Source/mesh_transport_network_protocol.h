@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-//#define TEST_FLAG
+#define TEST_FLAG
 
 #ifdef TEST_FLAG
     #include <time.h>
@@ -35,10 +35,10 @@ typedef uint32 (*getSystemTimestampFunction) ();
 
 typedef struct  
 {
-    uint24 networkIdentifier : 24;
+    uint16 networkIdentifier;
+    uint16 source;
     uint8 length : 5;
     MessageType type : 3;
-    uint16 source;
     uint8 sequenceID;
     uint16 destination;
 } MessageHeader;
@@ -58,7 +58,7 @@ typedef struct
     uint32 time;
     uint8* message;
 } PendingACK;
-void initializeMeshConnectionProtocol(uint24 networkIdentifier, 
+void initializeMeshConnectionProtocol(uint16 networkIdentifier, 
 	uint16 deviceIdentifier, 
 	advertiseDataFunction dataFunction, 
 	onMessageRecieved messageCallback,

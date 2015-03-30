@@ -1,7 +1,7 @@
 #include "TestUtils.h"
 #include "mesh_transport_network_protocol.h"
 #include <iostream>
-
+#define HEADER_SIZE sizeof(MessageHeader)
 using namespace std;
 
 TEST_F(TNPTest, ReceiveBroadcast) {
@@ -9,20 +9,20 @@ TEST_F(TNPTest, ReceiveBroadcast) {
     int length = 5;
     uint8 data[5] = {0x89, 0x27, 0x90, 0x12, 0xBA};
     broadcastMessage(data, length);
-    
-    processIncomingMessage(advertisingData[0], 7 + length);
+    processIncomingMessage(advertisingData[0], 6 + length);
     
     // Check message callback count and its data, and that the broadcast is 
-    // forwarded
-    ASSERT_EQ(1, TNPTest::messageCallbacks);
+    // forwarded (both to the app and to rest of network)
+    ASSERT_EQ(2, TNPTest::messageCallbacks);
     ASSERT_EQ(2, TNPTest::advertisingCalls);
     
     TNPTest::validateData(data, TNPTest::messageData[0], length);
-    TNPTest::validateData(advertisingData[0], advertisingData[1], length + 7);
+    TNPTest::validateData(data, TNPTest::messageData[1], length);
+    TNPTest::validateData(advertisingData[0], advertisingData[1], length + 6);
     
     // Make sure the broadcast isn't forwarded if recieved a 2nd time
-    processIncomingMessage(advertisingData[0], 7 + length);
-    ASSERT_EQ(1, TNPTest::messageCallbacks);
+    processIncomingMessage(advertisingData[0], 6 + length);
+    ASSERT_EQ(2, TNPTest::messageCallbacks);
 }
 
 TEST_F(TNPTest, ReceiveGroupBroadcast) {
@@ -35,17 +35,19 @@ TEST_F(TNPTest, ReceiveGroupBroadcast) {
     joinGroup(groupID);
     
     // Test processing a message addressed to this node
-    processIncomingMessage(advertisingData[0], 9 + length);
+    processIncomingMessage(advertisingData[0], HEADER_SIZE + length);
     
     // Check message callback count and its data. Make sure the message is
     // forwarded to the rest of the network, as well as the app
     ASSERT_EQ(1, TNPTest::messageCallbacks);
     TNPTest::validateData(data, TNPTest::messageData[0], length);
     ASSERT_EQ(2, TNPTest::advertisingCalls);
+    TNPTest::validateData(advertisingData[0], advertisingData[1], HEADER_SIZE + length);
     
     // Test processing a message that isn't addressed to the groupID
     broadcastGroupMessage(874, data, length);
-    processIncomingMessage(advertisingData[1], 9 + length);
+    
+    processIncomingMessage(advertisingData[1], HEADER_SIZE + length);
     // Make sure it's forwarded to the rest of the network, but not the app
     ASSERT_EQ(1, TNPTest::messageCallbacks);
     ASSERT_EQ(3, TNPTest::advertisingCalls);
@@ -55,25 +57,32 @@ TEST_F(TNPTest, ReceiveStatelessAddressedMessage) {
     TNPTest::initializeProtocolWithDefaultParameters();
     int length = 5;
     uint8 data[5] = {0x99, 0xF1, 0xAB, 0x3B, 0xB1};
-    sendStatelessMessage(TNPTest::nodeId, data, length);
+    uint16 sender = TNPTest::nodeId;
+    uint16 receiver = 0x7B8F;
+    
+    sendStatelessMessage(receiver, data, length);
+    
+    initializeMeshConnectionProtocol(TNPTest::networkID, receiver, 
+            &TNPTest::advertiseCallback, &TNPTest::messageCallback,
+            &TNPTest::getTimestamp);
     
     // Test processing a message addressed to this node
-    processIncomingMessage(advertisingData[0], 9 + length);
-    
+    processIncomingMessage(advertisingData[0], HEADER_SIZE + length);
+
     // Check message callback count and its data. Make sure the message isn't
     // forwarded, since it's addressed to this node
     ASSERT_EQ(1, TNPTest::messageCallbacks);
-    TNPTest::validateData(data, TNPTest::messageData[0], length);
     ASSERT_EQ(1, TNPTest::advertisingCalls);
+    TNPTest::validateData(data, TNPTest::messageData[0], length);
     
     // Test processing the message again, make sure it isn't processed.
-    processIncomingMessage(advertisingData[0], 9 + length);
+    processIncomingMessage(advertisingData[0], HEADER_SIZE + length);
     ASSERT_EQ(1, TNPTest::messageCallbacks);
     ASSERT_EQ(1, TNPTest::advertisingCalls);
     
     // Test processing a message that isn't addressed to this node
     sendStatelessMessage(27218, data, length);
-    processIncomingMessage(advertisingData[1], 9 + length);
+    processIncomingMessage(advertisingData[1], HEADER_SIZE + length);
     // Make sure it's forwarded to the rest of the network, but not the app
     ASSERT_EQ(1, TNPTest::messageCallbacks);
     ASSERT_EQ(2, TNPTest::advertisingCalls);
@@ -93,7 +102,7 @@ TEST_F(TNPTest, ReceiveStatefulAddressedMessage) {
     initializeMeshConnectionProtocol(TNPTest::networkID, receiver, 
             &TNPTest::advertiseCallback, &TNPTest::messageCallback,
             &TNPTest::getTimestamp);
-    processIncomingMessage(advertisingData[0], 9 + length);
+    processIncomingMessage(advertisingData[0], HEADER_SIZE + length);
     
     // Check message callback count and its data. Make sure the message isn't
     // forwarded, since it's addressed to this node, BUT that an ACK is sent.
@@ -107,7 +116,7 @@ TEST_F(TNPTest, ReceiveStatefulAddressedMessage) {
     
     // Test processing a message that isn't addressed to this node
     sendStatefulMessage(27218, data, length);
-    processIncomingMessage(advertisingData[1], 9 + length);
+    processIncomingMessage(advertisingData[1], HEADER_SIZE + length);
     // Make sure it's forwarded to the rest of the network, but not the app
     ASSERT_EQ(1, TNPTest::messageCallbacks);
     ASSERT_EQ(3, TNPTest::advertisingCalls);
@@ -117,7 +126,7 @@ TEST_F(TNPTest, ReceiveMessageFromAnotherNetwork) {
     TNPTest::initializeProtocolWithDefaultParameters();
     int length = 5;
     uint8 data[5] = {0x99, 0xF1, 0xAB, 0x3B, 0xB1};
-    uint24 networkID = 0x7281;
+    uint16 networkID = 0xABA8;
     
     // Send message using default network ID
     sendStatefulMessage(TNPTest::nodeId, data, length);
@@ -126,10 +135,11 @@ TEST_F(TNPTest, ReceiveMessageFromAnotherNetwork) {
     initializeMeshConnectionProtocol(networkID, TNPTest::nodeId, 
             &TNPTest::advertiseCallback, &TNPTest::messageCallback,
             &TNPTest::getTimestamp);
-    processIncomingMessage(advertisingData[0], 9 + length);
+    TNPTest::resetRecords();
+    processIncomingMessage(advertisingData[0], HEADER_SIZE + length);
     // Make sure no message is forwarded neither to the app or the network
     ASSERT_EQ(0, TNPTest::messageCallbacks);
-    ASSERT_EQ(1, TNPTest::advertisingCalls);
+    ASSERT_EQ(0, TNPTest::advertisingCalls);
 }
 
 TEST_F(TNPTest, ReceiveInvalidMessage) {
@@ -178,7 +188,7 @@ TEST_F(TNPTest, ResendStatefulMessage) {
     // Validate that the right data is sent out
     TNPTest::validateHeaderData(TNPTest::networkID, sender, receiver1, 
             STATEFUL_MESSAGE, 9, TNPTest::advertisingData[TNPTest::advertisingCalls-1]);
-    TNPTest::validateData(&TNPTest::advertisingData[0][9], &TNPTest::advertisingData[TNPTest::advertisingCalls-1][9], 9);
+    TNPTest::validateData(&TNPTest::advertisingData[0][HEADER_SIZE], &TNPTest::advertisingData[TNPTest::advertisingCalls-1][HEADER_SIZE], 9);
     
     // ACK the first message
     uint8 ackData[10] = {0};
@@ -189,11 +199,9 @@ TEST_F(TNPTest, ResendStatefulMessage) {
     ackHeader->sequenceID = 99;
     ackHeader->length = 1;
     ackHeader->type = STATEFUL_MESSAGE_ACK;
-    ackData[7] = ackData[8];
-    ackData[8] = ackData[9];
 
     // Assign the sequenceID of the resent message as the content
-    ackData[9] = ((MessageHeader*)TNPTest::advertisingData[TNPTest::advertisingCalls-1])->sequenceID; 
+    ackData[HEADER_SIZE] = ((MessageHeader*)TNPTest::advertisingData[TNPTest::advertisingCalls-1])->sequenceID; 
     // Process the ACK for the first message
     processIncomingMessage(ackData, 10);
 
@@ -206,15 +214,15 @@ TEST_F(TNPTest, ResendStatefulMessage) {
     // Validate that the right data is sent out in message 2
     TNPTest::validateHeaderData(TNPTest::networkID, sender, receiver2, 
             STATEFUL_MESSAGE, 3, TNPTest::advertisingData[TNPTest::advertisingCalls-2]);
-    TNPTest::validateData(&TNPTest::advertisingData[1][9], &TNPTest::advertisingData[TNPTest::advertisingCalls-2][9], 3);
+    TNPTest::validateData(&TNPTest::advertisingData[1][HEADER_SIZE], &TNPTest::advertisingData[TNPTest::advertisingCalls-2][HEADER_SIZE], 3);
     // in message 3
     TNPTest::validateHeaderData(TNPTest::networkID, sender, receiver1, 
             STATEFUL_MESSAGE, 5, TNPTest::advertisingData[TNPTest::advertisingCalls-1]);
-    TNPTest::validateData(&TNPTest::advertisingData[2][9], &TNPTest::advertisingData[TNPTest::advertisingCalls-1][9], 5);
+    TNPTest::validateData(&TNPTest::advertisingData[2][HEADER_SIZE], &TNPTest::advertisingData[TNPTest::advertisingCalls-1][HEADER_SIZE], 5);
     
     // Ack the 2nd message
     ackHeader->source = receiver2;
-    ackData[9] = ((MessageHeader*)TNPTest::advertisingData[TNPTest::advertisingCalls-2])->sequenceID; 
+    ackData[HEADER_SIZE] = ((MessageHeader*)TNPTest::advertisingData[TNPTest::advertisingCalls-2])->sequenceID; 
     ackHeader->sequenceID += 1;
     processIncomingMessage(ackData, 10);
     
@@ -228,7 +236,7 @@ TEST_F(TNPTest, ResendStatefulMessage) {
     // Send an ack for the 3rd message that uses an old sequence number (the
     // first one send with message 3)
     ackHeader->source = receiver1;
-    ackData[9] = ((MessageHeader*)TNPTest::advertisingData[2])->sequenceID;  
+    ackData[HEADER_SIZE] = ((MessageHeader*)TNPTest::advertisingData[2])->sequenceID;  
     ackHeader->sequenceID += 1;
     processIncomingMessage(ackData, 10);
     
@@ -243,7 +251,7 @@ TEST_F(TNPTest, ResendStatefulMessage) {
     
     // ACK the 3rd message
     ackHeader->source = receiver1;
-    ackData[9] = ((MessageHeader*)TNPTest::advertisingData[TNPTest::advertisingCalls-1])->sequenceID;  
+    ackData[HEADER_SIZE] = ((MessageHeader*)TNPTest::advertisingData[TNPTest::advertisingCalls-1])->sequenceID;  
     ackHeader->sequenceID += 1;
     processIncomingMessage(ackData, 10);
     // Make sure that after a timeout period, all messages have been ACK'ed

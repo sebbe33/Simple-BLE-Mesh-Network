@@ -15,15 +15,19 @@ public:
     static int advertisingCalls, messageCallbacks;
     static uint32 timestamp;
     static uint8 advertisingData[20][32], messageData[20][23];
-    static const uint24 networkID = 0xFACB;
+    static const uint16 networkID = 0xFACB;
     static const uint16 nodeId = 0xC89A;
     
     virtual void SetUp() {
         destructMeshConnectionProtocol();
-        advertisingCalls = 0;
-        messageCallbacks = 0;
+        resetRecords();
     }
 
+    static void resetRecords() {
+        advertisingCalls = 0;
+        messageCallbacks = 0; 
+    }
+    
     static uint32 getTimestamp() {
         return timestamp;
     }
@@ -49,14 +53,14 @@ public:
         messageCallbacks++;
     }
     
-    static void validateHeaderData(uint24 networkID, uint16 source, 
+    static void validateHeaderData(uint16 networkID, uint16 source, 
             uint16 destination, MessageType type, uint8 length, uint8* rawData) {
         MessageHeader* header = (MessageHeader*) rawData;
         ASSERT_EQ(source, header->source);
         ASSERT_EQ(networkID, header->networkIdentifier);
         ASSERT_EQ(type, header->type);
         ASSERT_EQ(length, header->length);
-        ASSERT_EQ(destination, (rawData[8] << 8) | rawData[7]);
+        ASSERT_EQ(destination, header->destination);
     }
     
     static void validateData(uint8* expected, uint8* result, uint8 length) {
