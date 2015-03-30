@@ -147,6 +147,7 @@ static gaprole_States_t gapProfileState = GAPROLE_INIT;
 static uint8 RXBuf[MAX_RX_LEN];
 static uint8 rxLen = 0;
 static uint8 rxHead = 0, rxTail = 0;
+uint8 isObserving = 0;
 
 // GAP - SCAN RSP data (max size = 31 bytes)
 static uint8 scanRspData[] =
@@ -200,6 +201,8 @@ static uint8 infoEvent = 0;
 static uint8 discoveryEvent = 0;
 static uint32 timeReceived = 0;
 static uint32 timeHandled = 0;
+
+uint8 count = 0;
 /*********************************************************************
 * LOCAL FUNCTIONS
 */
@@ -299,7 +302,7 @@ void Biscuit_Init( uint8 task_id )
   
   
   
-//#define setup
+  //#define setup
 #ifdef setup
   uint24 networkID = 666;
   uint16 nodeID = 11;
@@ -326,7 +329,7 @@ void Biscuit_Init( uint8 task_id )
   GAPRole_SetParameter(GAPROLE_ADVERT_DATA, sizeof(advertData), advertData);
   
   initializeMeshConnectionProtocol(networkID,nodeID,&advertiseCallback, &messageCallback, &osal_GetSystemClock);
-
+  
 #endif
   
   // Setup observer related GAP profile properties
@@ -453,7 +456,7 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     osal_start_timerEx( biscuit_TaskID, SBP_PERIODIC_EVT, SBP_PERIODIC_EVT_PERIOD );
     
     //Start observing
-    osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 25);  
+    osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 25);
     
     return ( events ^ SBP_START_DEVICE_EVT );
   }
@@ -505,30 +508,31 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
   
   if (events & SBP_FORWARDING_DONE_EVENT) 
   {
-      osal_start_timerEx(biscuit_TaskID, SBP_FORWARDING_DONE_EVENT, FORWARDING_INTERVAL );
-      
-      // Turn off advertisements
-      uint8 dummy = FALSE;
-      GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy);
-      
-      // Set back the default advertising data and advertising period
-      GAPRole_SetParameter(GAPROLE_ADVERT_DATA, sizeof(advertData), advertData);
-      
-      uint16 advInt = DEFAULT_ADVERTISING_INTERVAL;
-      setAdvertisingInterval(&advInt);
-      
-      // Turn on advertisements
-      dummy = TRUE;
-      GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy);  
-      debugPrintLine("Started default advertisement");
+    // Turn off advertisements
+    uint8 dummy = FALSE;
+    GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy);
+    
+    // Set back the default advertising data and advertising period
+    GAPRole_SetParameter(GAPROLE_ADVERT_DATA, sizeof(advertData), advertData);
+    
+    uint16 advInt = DEFAULT_ADVERTISING_INTERVAL;
+    setAdvertisingInterval(&advInt);
+    
+    // Turn on advertisements
+    dummy = TRUE;
+    GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy);  
+    debugPrintLine("Started default advertisement");
   }
   
   if(events & SBP_START_OBSERVING)
   {
-    // Start observing again
+    if(isObserving == 0){
+      // Start observing again
       GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
-                        DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                        DEFAULT_DISCOVERY_WHITE_LIST ); 
+                                     DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                     DEFAULT_DISCOVERY_WHITE_LIST ); 
+    }    
+    isObserving = 1;
   }
   
   // Discard unknown events
@@ -680,34 +684,43 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
     
   case GAP_DEVICE_INFO_EVENT:
     {
-      uint8* data = pEvent->deviceInfo.pEvtData;
-      uint8  dataLen = pEvent->deviceInfo.dataLen;
-      processIncomingMessage(&data[6], dataLen);
-      MessageHeader* h = (MessageHeader*) &data[6];
-      uint32 netId = h->networkIdentifier;
-      uint8 len = h->length;
-      uint8 type = h->type;
-      uint8 seq = h->sequenceID;
-      
-      debugPrintRaw32((uint32*)&netId);
-      debugPrintRaw((uint8*)&len);
-      debugPrintRaw((uint8*)&type);
-      debugPrintRaw((uint8*)&h->source);
-      debugPrintRaw((uint8*)&seq);
-      
-      uint24 o = 0x010203;
-      debugPrintRaw32(&o);
-      
-      //debugPrintLine("Device found");
+      //count++;
+      //if(pEvent->deviceInfo.addr[0] == 0x95){
+        
+        
+        //debugPrintRaw((uint8*) &count);
+        uint8* data = pEvent->deviceInfo.pEvtData;
+        uint8  dataLen = pEvent->deviceInfo.dataLen;
+        processIncomingMessage(&data[9], dataLen);
+        /*MessageHeader* h = (MessageHeader*) &data[9];
+        uint16 netId = h->networkIdentifier;
+        uint8 len = h->length;
+        uint8 type = h->type;
+        uint8 seq = h->sequenceID;
+        
+        debugPrintRaw16((uint16*)&netId);
+        debugPrintRaw((uint8*)&len);
+        debugPrintRaw((uint8*)&type);
+        debugPrintRaw16((uint16*)&h->source);
+        debugPrintRaw((uint8*)&seq);
+        */
+        //debugPrintRawArray(&data[9], 6);
+        //uint24 o = 0x010203;
+        //debugPrintRaw32(&o);
+        
+        //debugPrintLine("Device found");
+      //}
       
     }
     break;
     
   case GAP_DEVICE_DISCOVERY_EVENT:
     {
-      GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
-                        DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                        DEFAULT_DISCOVERY_WHITE_LIST );
+      if(isObserving == 1){
+        GAPObserverRole_StartDiscovery( DEFAULT_DISCOVERY_MODE,
+                                       DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                       DEFAULT_DISCOVERY_WHITE_LIST );
+      }
     }
     break;
     
@@ -734,7 +747,7 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 */
 static void performPeriodicTask( void )
 {
- 
+  
   MessageHeader head;
   head.networkIdentifier = 0x080007;
   head.length = 10;
@@ -744,7 +757,7 @@ static void performPeriodicTask( void )
   
   uint8* u = (uint8*) &head;
   
-  debugPrintRawArray(u, 8);
+  //debugPrintRawArray(u, 8);
   
   
 }
@@ -898,19 +911,21 @@ static void dataHandler( uint8 port, uint8 events )
 static void advertiseCallback(uint8* data, uint8 length)
 {
   debugPrintLine("Started forwarding");
+  isObserving = 0;
   GAPObserverRole_StopDiscovery();
   uint8 dummy = FALSE;
   GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy );
   GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length, data );
   uint16 advInt = DEFAULT_ADVERTISING_INTERVAL_FORWARDING;
   setAdvertisingInterval(&advInt);
+  dummy = TRUE;
   GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy );  
   
   // Start forwarding done event timer
   osal_start_timerEx(biscuit_TaskID, SBP_FORWARDING_DONE_EVENT, FORWARDING_INTERVAL);
   
   // Start delayed observing
-  osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 25);  
+  osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 25);
 }
 static void messageCallback(uint8* data, uint8 length)
 {
