@@ -951,7 +951,7 @@ static void advertiseCallback(uint8* data, uint8 length)
   isObserving = 0;
   GAPObserverRole_StopDiscovery();
 
-  osal_memcpy(&advert[4], data, length);
+  osal_memcpy(&advert[4], data, length + 4);
    
   GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length, advert);
   
@@ -964,10 +964,12 @@ static void advertiseCallback(uint8* data, uint8 length)
   
   // Start delayed observing
   osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 60);
+  
+  debugPrintLine("Forwarding");
 }
 static void messageCallback(uint8* data, uint8 length)
 {
-  //Line("Got message");
+  debugPrintLine("Got message");
 }
 
 static void setAdvertisingInterval(uint16* interval) 

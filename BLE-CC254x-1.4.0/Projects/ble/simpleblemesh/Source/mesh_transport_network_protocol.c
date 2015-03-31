@@ -93,10 +93,11 @@ void processIncomingMessage(uint8* message, uint8 length)
 				forwardMessageToApp(&message[HEADER_SIZE], length - HEADER_SIZE);
 				break;
 	  		case STATEFUL_MESSAGE:
-                forwardMessageToApp(&message[HEADER_SIZE], length - HEADER_SIZE);
-                // Send ACK
-                constructDataMessage(message, STATEFUL_MESSAGE_ACK, header->source, &header->sequenceID, 1);
-                advertise(message, HEADER_SIZE + 1);
+                                forwardMessageToApp(&message[HEADER_SIZE], length - HEADER_SIZE);
+                                // Send ACK
+                                uint8 sequenceIDToACK = header->sequenceID;
+                                constructDataMessage(message, STATEFUL_MESSAGE_ACK, header->source, &sequenceIDToACK, 1);
+                                advertise(message, HEADER_SIZE + 1);
 	  			break;
 	  		case STATEFUL_MESSAGE_ACK:
 	  			removePendingACK(message);
