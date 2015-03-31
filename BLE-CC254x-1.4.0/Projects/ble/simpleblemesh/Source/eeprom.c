@@ -124,7 +124,7 @@ unsigned long eeprom_read_long(unsigned short addr)
     return result;    
 }
 
-unsigned char eeprom_read_bytes(unsigned short addr, unsigned char* data, unsigned char len){
+void eeprom_read_bytes(unsigned short addr, unsigned char* data, unsigned char len){
       for(int i=0; i<len; i++){
       data[i] = eeprom_read(addr+i);
   }

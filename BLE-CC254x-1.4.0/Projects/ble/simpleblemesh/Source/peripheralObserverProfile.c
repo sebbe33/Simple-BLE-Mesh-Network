@@ -52,6 +52,7 @@ contact Texas Instruments Incorporated at www.TI.com.
 
 #include "peripheralObserverProfile.h"
 #include "gapbondmgr.h"
+#include "print_uart.h"
 
 
 /*********************************************************************
@@ -309,6 +310,7 @@ bStatus_t GAPRole_SetParameter( uint16 param, uint8 len, void *pValue )
       // Update the advertising data
       ret = GAP_UpdateAdvertisingData( gapRole_TaskID,
                                       TRUE, gapRole_AdvertDataLen, gapRole_AdvertData );
+      
     }
     else
     {
@@ -808,7 +810,7 @@ uint16 GAPRole_ProcessEvent( uint8 task_id, uint16 events )
       params.filterPolicy = gapRole_AdvFilterPolicy;
       
       gapStatus__ = GAP_MakeDiscoverable(gapRole_TaskID, &params );
-      
+            
       if ( gapStatus__ != SUCCESS )
       {
         gapRole_state = GAPROLE_ERROR;
@@ -997,12 +999,13 @@ static void gapRole_ProcessGAPMsg( gapEventHdr_t *pMsg )
         }
         else 
         {
-          if (gapRole_state == GAPROLE_ADVERTISING || gapRole_state == GAPROLE_CONNECTED_ADV ||
-              osal_get_timeoutEx(gapRole_TaskID, START_ADVERTISING_EVT) != 0){
-                  GAP_EndDiscoverable( gapRole_TaskID );
+          if (gapRole_state != GAPROLE_ADVERTISING && gapRole_state != GAPROLE_CONNECTED_ADV &&
+              osal_get_timeoutEx(gapRole_TaskID, START_ADVERTISING_EVT) == 0){
+                  //GAP_EndDiscoverable( gapRole_TaskID );
+                  // Start advertising
+                  VOID osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
               }
-          // Start advertising
-          VOID osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
+          
         }
       }
       

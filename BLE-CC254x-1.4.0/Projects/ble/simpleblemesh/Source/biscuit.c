@@ -66,18 +66,16 @@ SOFTWARE.
 #define SBP_PERIODIC_EVT_PERIOD                   6000
 
 // What is the advertising interval when device is discoverable (units of 625us, 160=100ms)
-#define DEFAULT_ADVERTISING_INTERVAL 3000
-#define DEFAULT_ADVERTISING_INTERVAL_FORWARDING 25
+#define DEFAULT_ADVERTISING_INTERVAL 33
+#define DEFAULT_ADVERTISING_INTERVAL_CONNECTION 160
 
 #define FORWARDING_INTERVAL 100
 // Limited discoverable mode advertises for 30.72s, and then stops
 // General discoverable mode advertises indefinitely
 
-#if defined ( CC2540_MINIDK )
-#define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_LIMITED
-#else
+
 #define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_GENERAL
-#endif  // defined ( CC2540_MINIDK )
+
 
 // Minimum connection interval (units of 1.25ms, 80=100ms) if automatic parameter update request is enabled
 #define DEFAULT_DESIRED_MIN_CONN_INTERVAL     200
@@ -119,7 +117,12 @@ SOFTWARE.
 // Maximum number of scan responses
 #define DEFAULT_MAX_SCAN_RES                  8
 
+#define DEFAULT                               1
+#define FORWARD                               2
 
+#define ADV_PERIOD_INACTIVE                   4000
+#define ADV_PERIOD                            100
+#define ADV_PERIOD_EAGER                      500
 
 /*********************************************************************
 * TYPEDEFS
@@ -148,6 +151,9 @@ static uint8 RXBuf[MAX_RX_LEN];
 static uint8 rxLen = 0;
 static uint8 rxHead = 0, rxTail = 0;
 uint8 isObserving = 0;
+uint8 setInterval =0;
+
+uint32 t1,t2;
 
 // GAP - SCAN RSP data (max size = 31 bytes)
 static uint8 scanRspData[] =
@@ -180,12 +186,11 @@ static uint8 advertData[31] =
   11,   // length of this data
   GAP_ADTYPE_LOCAL_NAME_COMPLETE,
   'B','L','E',' ','M','a','n','o','a','b',
-  
 };
 
 
 // GAP GATT Attributes
-static uint8 attDeviceName[GAP_DEVICE_NAME_LEN] = "BLE Mini";
+static uint8 attDeviceName[GAP_DEVICE_NAME_LEN] = "EHMARINE";
 
 
 // Number of scan results and scan result index
@@ -201,6 +206,8 @@ static uint8 infoEvent = 0;
 static uint8 discoveryEvent = 0;
 static uint32 timeReceived = 0;
 static uint32 timeHandled = 0;
+
+uint8 isForwarding = FALSE;
 
 uint8 count = 0;
 /*********************************************************************
@@ -272,7 +279,7 @@ void Biscuit_Init( uint8 task_id )
   // Setup the GAP Peripheral Role Profile
   {
     // Device starts advertising upon initialization
-    uint8 initial_advertising_enable = TRUE;
+    uint8 initial_advertising_enable = FALSE;
     
     // By setting this to zero, the device will go into the waiting state after
     // being discoverable for 30.72 second, and will not being advertising again
@@ -300,7 +307,7 @@ void Biscuit_Init( uint8 task_id )
   
   i2c_init();
   
-  
+  GGS_SetParameter( GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, attDeviceName );
   
   //#define setup
 #ifdef setup
@@ -318,13 +325,13 @@ void Biscuit_Init( uint8 task_id )
   uint24 networkID = eeprom_read_long(NETWORK_ID_ADR);
   uint16 nodeID = (uint16) eeprom_read_long(NODE_ID_ADR);
   
-  advertData[5] = (uint8) ((networkID >> 16) & 0xFF);
+  /*advertData[5] = (uint8) ((networkID >> 16) & 0xFF);
   advertData[6] = (uint8) ((networkID >> 8) & 0xFF),
   advertData[7] = (uint8) networkID;
-  
+  */
   uint8 nodeName[20];
   //
-  eeprom_read_bytes(NETWORK_NAME_ADR, &advertData[8], 20);
+  //eeprom_read_bytes(NETWORK_NAME_ADR, &advertData[8], 20);
   //eeprom_read_bytes(NODE_NAME_ADR, (uint8*)nodeName, sizeof(nodeName));		
   GAPRole_SetParameter(GAPROLE_ADVERT_DATA, sizeof(advertData), advertData);
   
@@ -399,6 +406,9 @@ void Biscuit_Init( uint8 task_id )
   
   // Setup a delayed profile startup
   osal_set_event( biscuit_TaskID, SBP_START_DEVICE_EVT );
+
+  osal_start_timerEx( biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_EAGER );
+
 }
 
 /*********************************************************************
@@ -508,20 +518,11 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
   
   if (events & SBP_FORWARDING_DONE_EVENT) 
   {
+    isForwarding = FALSE;
     // Turn off advertisements
     uint8 dummy = FALSE;
     GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy);
     
-    // Set back the default advertising data and advertising period
-    GAPRole_SetParameter(GAPROLE_ADVERT_DATA, sizeof(advertData), advertData);
-    
-    uint16 advInt = DEFAULT_ADVERTISING_INTERVAL;
-    setAdvertisingInterval(&advInt);
-    
-    // Turn on advertisements
-    dummy = TRUE;
-    GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy);  
-    debugPrintLine("Started default advertisement");
   }
   
   if(events & SBP_START_OBSERVING)
@@ -534,6 +535,34 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     }    
     isObserving = 1;
   }
+  if(events & SBP_START_ADV_PERIOD)
+  {
+    if(isForwarding == FALSE){
+      // Set back the default advertising data and advertising period
+      GAPRole_SetParameter(GAPROLE_ADVERT_DATA, sizeof(advertData), advertData);
+      
+      // Turn on advertisements
+      uint8 dummy = TRUE;
+      GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy);  
+      osal_start_timerEx( biscuit_TaskID, SBP_STOP_ADV_PERIOD, ADV_PERIOD );
+    }else{
+      osal_start_timerEx( biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_EAGER );
+    }
+  }
+  
+  if(events & SBP_STOP_ADV_PERIOD)
+  {
+    if(isForwarding == FALSE){
+      // Turn on advertisements
+      uint8 dummy = FALSE;
+      GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy);  
+    }     
+    
+    osal_start_timerEx( biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_INACTIVE );
+    
+  }
+  
+  
   
   // Discard unknown events
   return 0;
@@ -601,11 +630,8 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     
   case GAPROLE_ADVERTISING:
     {
-      debugPrintLine("Started advertising");
-      
-      uint8 stat = getStatus_();
-      debugPrintRaw(&stat);
-      
+      //debugPrintLine("Started advertising");
+        
       
     }
     break;
@@ -632,10 +658,12 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     break;      
   case GAPROLE_WAITING:
     {
+            
       debugPrintLine("GAPROLE_WAITING");
       //uint8 turnOnAdv = TRUE;
       // Turn on advertising while in a connection
-      //GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv ); 
+      //GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv );  
+     
     }
     break;
     
@@ -686,29 +714,29 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
     {
       //count++;
       //if(pEvent->deviceInfo.addr[0] == 0x95){
-        
-        
-        //debugPrintRaw((uint8*) &count);
-        uint8* data = pEvent->deviceInfo.pEvtData;
-        uint8  dataLen = pEvent->deviceInfo.dataLen;
-        processIncomingMessage(&data[9], dataLen);
-        /*MessageHeader* h = (MessageHeader*) &data[9];
-        uint16 netId = h->networkIdentifier;
-        uint8 len = h->length;
-        uint8 type = h->type;
-        uint8 seq = h->sequenceID;
-        
-        debugPrintRaw16((uint16*)&netId);
-        debugPrintRaw((uint8*)&len);
-        debugPrintRaw((uint8*)&type);
-        debugPrintRaw16((uint16*)&h->source);
-        debugPrintRaw((uint8*)&seq);
-        */
-        //debugPrintRawArray(&data[9], 6);
-        //uint24 o = 0x010203;
-        //debugPrintRaw32(&o);
-        
-        //debugPrintLine("Device found");
+      
+      
+      //debugPrintRaw((uint8*) &count);
+      uint8* data = pEvent->deviceInfo.pEvtData;
+      uint8  dataLen = pEvent->deviceInfo.dataLen;
+      processIncomingMessage(&data[9], dataLen);
+      /*MessageHeader* h = (MessageHeader*) &data[9];
+      uint16 netId = h->networkIdentifier;
+      uint8 len = h->length;
+      uint8 type = h->type;
+      uint8 seq = h->sequenceID;
+      
+      debugPrintRaw16((uint16*)&netId);
+      debugPrintRaw((uint8*)&len);
+      debugPrintRaw((uint8*)&type);
+      debugPrintRaw16((uint16*)&h->source);
+      debugPrintRaw((uint8*)&seq);
+      */
+      //debugPrintRawArray(&data[9], 6);
+      //uint24 o = 0x010203;
+      //debugPrintRaw32(&o);
+      
+      //debugPrintLine("Device found");
       //}
       
     }
@@ -748,7 +776,7 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 static void performPeriodicTask( void )
 {
   
-  MessageHeader head;
+  /*MessageHeader head;
   head.networkIdentifier = 0x080007;
   head.length = 10;
   head.type = 1;
@@ -756,8 +784,9 @@ static void performPeriodicTask( void )
   head.sequenceID = 1;
   
   uint8* u = (uint8*) &head;
-  
+  */
   //debugPrintRawArray(u, 8);
+  
   
   
 }
@@ -910,27 +939,37 @@ static void dataHandler( uint8 port, uint8 events )
 
 static void advertiseCallback(uint8* data, uint8 length)
 {
-  debugPrintLine("Started forwarding");
+  static uint8 advert[31] =
+  {
+    0x02,   // length of this data
+    GAP_ADTYPE_FLAGS,
+    DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
+    27
+  };
+  
+  isForwarding = TRUE;
   isObserving = 0;
   GAPObserverRole_StopDiscovery();
-  uint8 dummy = FALSE;
+
+  osal_memcpy(&advert[4], data, length);
+   
+  GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length, advert);
+  
+  //Start advertising
+  uint8 dummy = TRUE;
   GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy );
-  GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length, data );
-  uint16 advInt = DEFAULT_ADVERTISING_INTERVAL_FORWARDING;
-  setAdvertisingInterval(&advInt);
-  dummy = TRUE;
-  GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy );  
   
   // Start forwarding done event timer
   osal_start_timerEx(biscuit_TaskID, SBP_FORWARDING_DONE_EVENT, FORWARDING_INTERVAL);
   
   // Start delayed observing
-  osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 25);
+  osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 60);
 }
 static void messageCallback(uint8* data, uint8 length)
 {
-  debugPrintLine("Got message");
+  //Line("Got message");
 }
+
 static void setAdvertisingInterval(uint16* interval) 
 {
   GAP_SetParamValue( TGAP_LIM_DISC_ADV_INT_MIN, *interval );

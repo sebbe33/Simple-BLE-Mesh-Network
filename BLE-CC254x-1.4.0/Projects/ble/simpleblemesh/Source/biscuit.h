@@ -46,6 +46,9 @@ extern "C"
 #define SBP_ADV_IN_CONNECTION_EVT                         0x0004
 #define SBP_FORWARDING_DONE_EVENT                         0x0008
 #define SBP_START_OBSERVING                               0x0010
+#define SBP_START_ADV_PERIOD                              0x0020
+#define SBP_STOP_ADV_PERIOD                               0x0040
+   
 
 #define NETWORK_ID_ADR		1
 #define NODE_ID_ADR		5
