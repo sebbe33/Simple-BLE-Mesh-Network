@@ -62,7 +62,8 @@ void initializeMeshConnectionProtocol(uint16 networkId,
 
 void processIncomingMessage(uint8* message, uint8 length) 
 {
-	// If invalid message
+  uint8 newMessage [10]= {0};
+        // If invalid message
 	if(length < 6) return;
 
 	MessageHeader* header = (MessageHeader*) message;
@@ -96,8 +97,8 @@ void processIncomingMessage(uint8* message, uint8 length)
                                 forwardMessageToApp(&message[HEADER_SIZE], length - HEADER_SIZE);
                                 // Send ACK
                                 uint8 sequenceIDToACK = header->sequenceID;
-                                constructDataMessage(message, STATEFUL_MESSAGE_ACK, header->source, &sequenceIDToACK, 1);
-                                advertise(message, HEADER_SIZE + 1);
+                                constructDataMessage(newMessage, STATEFUL_MESSAGE_ACK, header->source, &sequenceIDToACK, 1);
+                                advertise(newMessage, HEADER_SIZE + 1);
 	  			break;
 	  		case STATEFUL_MESSAGE_ACK:
 	  			removePendingACK(message);
@@ -263,7 +264,7 @@ void constructDataMessage(uint8* data, MessageType type, uint16 destination, uin
     header->source = id;
     header->destination = destination;
     
-    for(char i = HEADER_SIZE; i < HEADER_SIZE + length; i++) {
+    for(uint8 i = HEADER_SIZE; i < HEADER_SIZE + length; i++) {
         data[i] = message[i-HEADER_SIZE];
     }
 }

@@ -144,7 +144,7 @@ SOFTWARE.
 * LOCAL VARIABLES
 */
 static uint8 biscuit_TaskID;   // Task ID for internal task/event processing
-
+uint8 flag = 0;
 static gaprole_States_t gapProfileState = GAPROLE_INIT;
 
 static uint8 RXBuf[MAX_RX_LEN];
@@ -715,11 +715,15 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
       //count++;
       //if(pEvent->deviceInfo.addr[0] == 0x95){
       
-      
+      //if( flag <= 1){
       //debugPrintRaw((uint8*) &count);
       uint8* data = pEvent->deviceInfo.pEvtData;
       uint8  dataLen = pEvent->deviceInfo.dataLen;
+      /*if(flag == 1) {
+        flag = 2;
+      }*/
       processIncomingMessage(&data[9], dataLen);
+      
       /*MessageHeader* h = (MessageHeader*) &data[9];
       uint16 netId = h->networkIdentifier;
       uint8 len = h->length;
@@ -732,6 +736,9 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
       debugPrintRaw16((uint16*)&h->source);
       debugPrintRaw((uint8*)&seq);
       */
+      //}
+      
+      
       //debugPrintRawArray(&data[9], 6);
       //uint24 o = 0x010203;
       //debugPrintRaw32(&o);
@@ -951,9 +958,11 @@ static void advertiseCallback(uint8* data, uint8 length)
   isObserving = 0;
   GAPObserverRole_StopDiscovery();
 
-  osal_memcpy(&advert[4], data, length + 4);
+  osal_memcpy(&advert[4], data, length);
+  
+  debugPrintRawArray(advert, length+4);
    
-  GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length, advert);
+  GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length+4, advert);
   
   //Start advertising
   uint8 dummy = TRUE;
@@ -964,7 +973,7 @@ static void advertiseCallback(uint8* data, uint8 length)
   
   // Start delayed observing
   osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 60);
-  
+  flag = 1;
   debugPrintLine("Forwarding");
 }
 static void messageCallback(uint8* data, uint8 length)
