@@ -88,11 +88,10 @@ CONST uint8 DevNameCharUUID[ATT_UUID_SIZE] =
   DEV_NAME_CHAR_UUID
 };
 
-
 // Network Char UUID: 0x0007
-CONST uint8 NetworkUUID[ATT_UUID_SIZE] =
+CONST uint8 NetworkNameUUID[ATT_UUID_SIZE] =
 { 
-  NETWORK_UUID
+  NETWORK_NAME_UUID
 };
 
 /*********************************************************************
@@ -153,13 +152,13 @@ static uint8 meshServiceChar4Props = GATT_PROP_WRITE | GATT_PROP_READ;
 static uint8 groupID[GROUP_ID_LENGTH] = {0};
 
 // Characteristic 4 User Description
-static uint8 meshServiceChar4UserDesp[10] = "Join Group";
+static uint8 meshServiceChar4UserDesp[11] = "Join Group";
 
 // Characteristic 5 Properties
 static uint8 meshServiceChar5Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
 // Characteristic 5 User Description
-static uint8 meshServiceChar5UserDesp[11] = "Leave Group";
+static uint8 meshServiceChar5UserDesp[12] = "Leave Group";
 
 
 // Characteristic 6 Properties
@@ -179,10 +178,10 @@ static uint8 meshServiceChar6UserDesp[17] = "Characteristic 5\0";
 static uint8 meshServiceChar7Props = GATT_PROP_WRITE | GATT_PROP_READ;
 
 // Characteristic 7 Value
-static uint8 networkID[NETWORK_ID_LENGTH] = {0};
+static uint8 networkName[NETWORK_NAME_LENGTH] = {0};
 
 // Characteristic 7 User Description
-static uint8 meshServiceChar7UserDesp[9] = "NetworkID";
+static uint8 meshServiceChar7UserDesp[12] = "NetworkName";
 
 
 /*********************************************************************
@@ -339,10 +338,10 @@ static gattAttribute_t meshAttrTbl[] =
 
       // Characteristic Value 7
       { 
-        { ATT_UUID_SIZE, NetworkUUID },
-          GATT_PERMIT_READ, 
+        { ATT_UUID_SIZE, NetworkNameUUID },
+        GATT_PERMIT_WRITE | GATT_PERMIT_READ, 
         0, 
-        networkID 
+        networkName 
       },
 
       // Characteristic 7 User Description
@@ -527,9 +526,9 @@ bStatus_t MESH_SetParameter( uint8 param, uint8 len, void *value )
       
     	  
    case NETWORK_CHAR:
-      if ( len == NETWORK_ID_LENGTH ) 
+      if ( len == NETWORK_NAME_LENGTH ) 
       {
-         VOID osal_memcpy(networkID, value, len);
+         VOID osal_memcpy(networkName, value, len);
       }
       else
       {
@@ -589,7 +588,7 @@ bStatus_t MESH_GetParameter( uint8 param, uint8 *len, void *value )
       
     
 	case NETWORK_CHAR:
-	  VOID osal_memcpy(value, networkID, NETWORK_ID_LENGTH);
+	  VOID osal_memcpy(value, networkName, NETWORK_NAME_LENGTH);
       break;
 	        
     default:
@@ -656,10 +655,10 @@ static uint8 mesh_ReadAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
       VOID osal_memcpy( pValue, pAttr->pValue, DevNameLen );     
     }
     
-	else if ( osal_memcmp(pAttr->type.uuid, NetworkUUID, ATT_UUID_SIZE) )
+	else if ( osal_memcmp(pAttr->type.uuid, NetworkNameUUID, ATT_UUID_SIZE) )
     {
-		*pLen = NETWORK_ID_LENGTH;
-      VOID osal_memcpy( pValue, pAttr->pValue, NETWORK_ID_LENGTH );
+		*pLen = NETWORK_NAME_LENGTH;
+      VOID osal_memcpy( pValue, pAttr->pValue, NETWORK_NAME_LENGTH );
 	}
 	
     else
@@ -831,13 +830,13 @@ static bStatus_t mesh_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAttr,
       }
     }
     
-	else if ( osal_memcmp(pAttr->type.uuid, NetworkUUID, ATT_UUID_SIZE) )
+	else if ( osal_memcmp(pAttr->type.uuid, NetworkNameUUID, ATT_UUID_SIZE) )
     {
       //Validate the value
       // Make sure it's not a blob oper
       if ( offset == 0 )
       {
-        if ( len != NETWORK_ID_LENGTH )
+        if ( len != NETWORK_NAME_LENGTH )
         {
           status = ATT_ERR_INVALID_VALUE_SIZE;
         }

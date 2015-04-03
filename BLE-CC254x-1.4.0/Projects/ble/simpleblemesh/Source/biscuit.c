@@ -809,12 +809,11 @@ static void meshServiceChangeCB( uint8 paramID )
   }
   else if (paramID == NETWORK_SET)
   {
-    uint24 newNetwork;
-    MESH_GetParameter(NETWORK_CHAR, &len, &data);
-    newNetwork = (data[2] << 16) | (data[1] << 8) | data[0];
-    //eeprom_write_bytes(NETWORK_ID_ADR, (uint8*)&newNetwork, sizeof(uint24));
-    //TODO
-    
+    MESH_GetParameter(NETWORK_CHAR, &len, data);
+    if(len > NETWORK_NAME_MAX_SIZE) {
+        len = NETWORK_NAME_MAX_SIZE;
+    }
+    eeprom_write_bytes(NETWORK_NAME_ADR, data, len);
   }
 }
 
