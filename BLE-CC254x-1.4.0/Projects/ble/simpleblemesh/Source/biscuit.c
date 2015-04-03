@@ -150,10 +150,9 @@ static gaprole_States_t gapProfileState = GAPROLE_INIT;
 static uint8 RXBuf[MAX_RX_LEN];
 static uint8 rxLen = 0;
 static uint8 rxHead = 0, rxTail = 0;
-uint8 isObserving = 0;
-uint8 setInterval =0;
+static uint8 isObserving = 0;
+static uint8 isAdvertisingPeriodically = TRUE;
 
-uint32 t1,t2;
 
 // GAP - SCAN RSP data (max size = 31 bytes)
 static uint8 scanRspData[] =
@@ -375,9 +374,6 @@ void Biscuit_Init( uint8 task_id )
   
   // Setup a delayed profile startup
   osal_set_event( biscuit_TaskID, SBP_START_DEVICE_EVT );
-
-  osal_start_timerEx( biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_EAGER );
-
 }
 
 /*********************************************************************
@@ -436,6 +432,9 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     
     //Start observing
     osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 25);
+    
+    // Start periodic advertisement
+    osal_start_timerEx( biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_EAGER);
     
     return ( events ^ SBP_START_DEVICE_EVT );
   }
@@ -504,7 +503,7 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     }    
     isObserving = 1;
   }
-  if(events & SBP_START_ADV_PERIOD)
+  if((events & SBP_START_ADV_PERIOD) && isAdvertisingPeriodically == TRUE)
   {
     if(isForwarding == FALSE){
       // Set back the default advertising data and advertising period
@@ -514,12 +513,12 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
       uint8 dummy = TRUE;
       GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy);  
       osal_start_timerEx( biscuit_TaskID, SBP_STOP_ADV_PERIOD, ADV_PERIOD );
-    }else{
+    } else{
       osal_start_timerEx( biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_EAGER );
     }
   }
   
-  if(events & SBP_STOP_ADV_PERIOD)
+  if((events & SBP_STOP_ADV_PERIOD) && isAdvertisingPeriodically == TRUE)
   {
     if(isForwarding == FALSE){
       // Turn on advertisements
@@ -567,7 +566,6 @@ static void biscuit_ProcessOSALMsg( osal_event_hdr_t *pMsg )
 */
 static void peripheralStateNotificationCB( gaprole_States_t newState )
 {  
-  static uint8 first_conn_flag = 0;
   switch ( newState )
   {
   case GAPROLE_STARTED:
@@ -603,6 +601,13 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     
   case GAPROLE_CONNECTED:
     { 
+      if(isAdvertisingPeriodically == TRUE) {
+        // If we're advertising periodically, turn it off while in connection
+        isAdvertisingPeriodically = FALSE;
+        debugPrintLine("Turning off");
+        osal_stop_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD);
+        osal_stop_timerEx(biscuit_TaskID, SBP_STOP_ADV_PERIOD);
+      }
       debugPrintLine("GAPROLE_CONNECTED");
     }
     break;
@@ -615,14 +620,19 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
   case GAPROLE_WAITING:
     {      
       debugPrintLine("GAPROLE_WAITING"); 
+      if(isAdvertisingPeriodically == FALSE) {
+        // Restart periodic advertisement after disconnection
+        osal_stop_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD);
+        osal_stop_timerEx(biscuit_TaskID, SBP_STOP_ADV_PERIOD);
+        osal_start_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_EAGER);
+        isAdvertisingPeriodically = TRUE;
+      }
     }
     break;
     
   case GAPROLE_WAITING_AFTER_TIMEOUT:
     {
       debugPrintLine("GAPROLE_WAITING_AFTER_TIMEOUT");
-      // Reset flag for next connection.
-      first_conn_flag = 0;
     }
     break;
     
@@ -902,7 +912,6 @@ static void advertiseCallback(uint8* data, uint8 length)
   
   // Start delayed observing
   osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 60);
-  flag = 1;
   debugPrintLine("Forwarding");
 }
 static void messageCallback(uint8* data, uint8 length)
