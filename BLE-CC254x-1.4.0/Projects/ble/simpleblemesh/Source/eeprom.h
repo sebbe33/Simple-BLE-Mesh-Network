@@ -22,8 +22,11 @@
   SOFTWARE.
 
 */
-
+unsigned long eeprom_read_long(unsigned short addr);
+void eeprom_write_long(unsigned short address, unsigned long value);
 void eeprom_write_25(unsigned char *data);
+void eeprom_write_bytes(unsigned short addr, unsigned char* data, unsigned char len);
 void eeprom_page_write(unsigned short addr, unsigned char wdata0, unsigned char wdata1, unsigned char wdata2, unsigned char wdata3);
 void eeprom_write(unsigned short addr, unsigned char wdata);
 unsigned char eeprom_read(unsigned short addr);
+void eeprom_read_bytes(unsigned short addr, unsigned char* data, unsigned char len);

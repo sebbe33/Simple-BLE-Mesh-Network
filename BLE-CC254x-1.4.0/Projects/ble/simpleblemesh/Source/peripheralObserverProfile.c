@@ -52,6 +52,7 @@ contact Texas Instruments Incorporated at www.TI.com.
 
 #include "peripheralObserverProfile.h"
 #include "gapbondmgr.h"
+#include "print_uart.h"
 
 
 /*********************************************************************
@@ -309,6 +310,7 @@ bStatus_t GAPRole_SetParameter( uint16 param, uint8 len, void *pValue )
       // Update the advertising data
       ret = GAP_UpdateAdvertisingData( gapRole_TaskID,
                                       TRUE, gapRole_AdvertDataLen, gapRole_AdvertData );
+      
     }
     else
     {
@@ -808,7 +810,7 @@ uint16 GAPRole_ProcessEvent( uint8 task_id, uint16 events )
       params.filterPolicy = gapRole_AdvFilterPolicy;
       
       gapStatus__ = GAP_MakeDiscoverable(gapRole_TaskID, &params );
-      
+            
       if ( gapStatus__ != SUCCESS )
       {
         gapRole_state = GAPROLE_ERROR;
@@ -995,10 +997,15 @@ static void gapRole_ProcessGAPMsg( gapEventHdr_t *pMsg )
           pPkt->hdr.status = GAP_UpdateAdvertisingData( gapRole_TaskID,
                                                        FALSE, gapRole_ScanRspDataLen, gapRole_ScanRspData );
         }
-        else
+        else 
         {
-          // Start advertising
-          VOID osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
+          if (gapRole_state != GAPROLE_ADVERTISING && gapRole_state != GAPROLE_CONNECTED_ADV &&
+              osal_get_timeoutEx(gapRole_TaskID, START_ADVERTISING_EVT) == 0){
+                  //GAP_EndDiscoverable( gapRole_TaskID );
+                  // Start advertising
+                  VOID osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
+              }
+          
         }
       }
       
@@ -1252,8 +1259,6 @@ static void gapRole_SetupGAP( void )
                                gapRole_profileRole, gapObserverRoleMaxScanRes,
                                gapRole_IRK, gapRole_SRK,
                                &gapRole_signCounter );
-  
-  gapStatus__ = (uint8) s;
 }
 
 /*********************************************************************
@@ -1393,3 +1398,9 @@ bStatus_t GAPObserverRole_StartDiscovery( uint8 mode, uint8 activeScan, uint8 wh
   
   return GAP_DeviceDiscoveryRequest( &params );
 }
+
+bStatus_t GAPObserverRole_StopDiscovery()
+{
+  return GAP_DeviceDiscoveryCancel(gapRole_TaskID);
+}
+

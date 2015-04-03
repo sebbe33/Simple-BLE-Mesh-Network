@@ -325,7 +325,7 @@ typedef enum
   */
   extern bStatus_t GAPObserverRole_StartDiscovery( uint8 mode, uint8 activeScan, uint8 whiteList );
   
-  
+  extern bStatus_t GAPObserverRole_StopDiscovery();
   
 #ifdef __cplusplus
 }
