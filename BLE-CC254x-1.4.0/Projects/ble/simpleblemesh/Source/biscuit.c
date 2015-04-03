@@ -800,27 +800,12 @@ static void meshServiceChangeCB( uint8 paramID )
   }
   else if (paramID == DEV_NAME_CHANGED)
   {
-    //TODO: Set name
-    /*
-    uint8 newDevName[GAP_DEVICE_NAME_LEN];
-    MESH_GetParameter(DEV_NAME_CHAR, &len, newDevName);
-    
-    uint8 devNamePermission = GATT_PERMIT_READ|GATT_PERMIT_WRITE; 
-    GGS_SetParameter( GGS_W_PERMIT_DEVICE_NAME_ATT, sizeof ( uint8 ), &devNamePermission );
-    newDevName[ len ] = '\0';
-    GGS_SetParameter( GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, newDevName );
-    
-    advertData[3] = len + 1;
-    osal_memcpy(&advertData[5], newDevName, len);
-    osal_memset(&advertData[len+5], 0, 31-5-len);
-    GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( advertData ), advertData );
-    
-    eeprom_write(5, len);
-    for(uint8 i=0; i<len; i++)
-    {
-    eeprom_write(i+8, newDevName[i]);
-  }
-    */
+    // Write new node name to persistent memory
+    MESH_GetParameter(DEV_NAME_CHAR, &len, data);
+    if(len > NODE_NAME_MAX_SIZE) {
+      len = NODE_NAME_MAX_SIZE;
+    }
+    eeprom_write_bytes(NODE_NAME_ADR, data, len);
   }
   else if (paramID == NETWORK_SET)
   {

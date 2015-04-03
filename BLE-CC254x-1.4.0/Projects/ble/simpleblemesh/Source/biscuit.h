@@ -49,11 +49,14 @@ extern "C"
 #define SBP_START_ADV_PERIOD                              0x0020
 #define SBP_STOP_ADV_PERIOD                               0x0040
    
-
+#define NODE_NAME_MAX_SIZE      20
+#define NETWORK_NAME_MAX_SIZE   20
+  
 #define NETWORK_ID_ADR		1
 #define NODE_ID_ADR		5
 #define NETWORK_NAME_ADR	9
-#define NODE_NAME_ADR		29
+#define NODE_NAME_ADR		9 + NETWORK_NAME_MAX_SIZE
+  
 
 /*********************************************************************
  * MACROS
