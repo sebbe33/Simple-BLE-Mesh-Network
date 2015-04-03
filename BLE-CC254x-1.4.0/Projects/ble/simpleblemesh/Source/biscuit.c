@@ -62,20 +62,31 @@ SOFTWARE.
 * CONSTANTS
 */
 
+#define NODE_NAME_MAX_SIZE      20
+#define NETWORK_NAME_MAX_SIZE   20
+  
+#define NETWORK_ID_ADR		1
+#define NODE_ID_ADR		5
+#define NETWORK_NAME_ADR	9
+#define NODE_NAME_ADR		9 + NETWORK_NAME_MAX_SIZE
+
+// Uncomment this to burn default values into persistent memory
+//#define BURN_DEFAULTS
+#define DEFAULT_NODE_NAME               "Default mesh node"
+#define DEFAULT_NODE_ID                 126
+#define DEFAULT_NETWORK_NAME            "BT Mesh Network"
+#define DEFAULT NETWORK_ID              999
+
 // How often to perform periodic event
 #define SBP_PERIODIC_EVT_PERIOD                   6000
 
 // What is the advertising interval when device is discoverable (units of 625us, 160=100ms)
 #define DEFAULT_ADVERTISING_INTERVAL 33
-#define DEFAULT_ADVERTISING_INTERVAL_CONNECTION 160
 
 #define FORWARDING_INTERVAL 100
-// Limited discoverable mode advertises for 30.72s, and then stops
+
 // General discoverable mode advertises indefinitely
-
-
 #define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_GENERAL
-
 
 // Minimum connection interval (units of 1.25ms, 80=100ms) if automatic parameter update request is enabled
 #define DEFAULT_DESIRED_MIN_CONN_INTERVAL     16
@@ -150,7 +161,7 @@ static gaprole_States_t gapProfileState = GAPROLE_INIT;
 static uint8 RXBuf[MAX_RX_LEN];
 static uint8 rxLen = 0;
 static uint8 rxHead = 0, rxTail = 0;
-static uint8 isObserving = 0;
+static uint8 isObserving = FALSE;
 static uint8 isAdvertisingPeriodically = TRUE;
 
 
@@ -182,9 +193,8 @@ static uint8 advertData[31] =
   DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
   
   // complete name 
-  11,   // length of this data
+  20,   // length of this data
   GAP_ADTYPE_LOCAL_NAME_COMPLETE,
-  'B','L','E',' ','M','a','n','o','a','b',
 };
 
 
@@ -203,7 +213,6 @@ static void meshServiceChangeCB( uint8 paramID );
 static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent );
 static void advertiseCallback(uint8* data, uint8 length);
 static void messageCallback(uint8* data, uint8 length);
-static void setAdvertisingInterval(uint16* interval);
 static void dataHandler( uint8 port, uint8 events );
 
 /*********************************************************************
@@ -288,26 +297,22 @@ void Biscuit_Init( uint8 task_id )
   
   GGS_SetParameter( GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, attDeviceName );
   
-  //#define setup
-#ifdef setup
-  uint24 networkID = 666;
-  uint16 nodeID = 11;
-  uint8 networkName[20] = "ehmarineehmarine";
-  uint8 nodeName[20] = "node1";
-  
-  eeprom_write_long(NETWORK_ID_ADR, networkID);
-  eeprom_write_long(NODE_ID_ADR, nodeID);
+#ifdef BURN_DEFAULTS
+  uint8 networkName[20] = DEFAULT_NETWORK_NAME;
+  uint8 nodeName[20] = "DEFAULT_NODE_NAME;
+  eeprom_write_long(NETWORK_ID_ADR, DEFAULT_NETWORK_ID);
+  eeprom_write_long(NODE_ID_ADR, DEFAULT_NODE_ID);
   eeprom_write_bytes(NETWORK_NAME_ADR, networkName, sizeof(networkName));
   eeprom_write_bytes(NODE_NAME_ADR, nodeName, sizeof(nodeName));
 #else
-  
-  uint24 networkID = eeprom_read_long(NETWORK_ID_ADR);
+  uint16 networkID = (uint16) eeprom_read_long(NETWORK_ID_ADR);
   uint16 nodeID = (uint16) eeprom_read_long(NODE_ID_ADR);
-  //eeprom_read_bytes(NETWORK_NAME_ADR, &advertData[8], 20);		
-  GAPRole_SetParameter(GAPROLE_ADVERT_DATA, sizeof(advertData), advertData);
-  initializeMeshConnectionProtocol(networkID,nodeID,&advertiseCallback, &messageCallback, &osal_GetSystemClock);
-  
+  eeprom_read_bytes(NETWORK_NAME_ADR, &advertData[5], 20);
 #endif
+  
+  GAPRole_SetParameter(GAPROLE_ADVERT_DATA, sizeof(advertData), advertData);
+  initializeMeshConnectionProtocol(networkID,nodeID,&advertiseCallback, 
+                                   &messageCallback, &osal_GetSystemClock);
   
   // Setup observer related GAP profile properties
   {
@@ -317,8 +322,11 @@ void Biscuit_Init( uint8 task_id )
   
   // Set advertising interval
   {
-    uint16 advInt = DEFAULT_ADVERTISING_INTERVAL;
-    setAdvertisingInterval(&advInt);
+    uint16 interval = DEFAULT_ADVERTISING_INTERVAL;
+    GAP_SetParamValue( TGAP_LIM_DISC_ADV_INT_MIN, interval );
+    GAP_SetParamValue( TGAP_LIM_DISC_ADV_INT_MAX, interval );
+    GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MIN, interval );
+    GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MAX, interval );
   }
   
   {
@@ -755,7 +763,7 @@ static void meshServiceChangeCB( uint8 paramID )
   {
     MESH_GetParameter(RX_MESSAGE_CHAR, &len, data);
     uint8 length = data[0];
-    MessageType type = data[1];
+    MessageType type = (MessageType) data[1];
     uint16 dest = (data[3] << 8) | data[2];
     uint8* message = &data[4];
     
@@ -901,12 +909,4 @@ static void advertiseCallback(uint8* data, uint8 length)
 static void messageCallback(uint8* data, uint8 length)
 {
   debugPrintLine("Got message");
-}
-
-static void setAdvertisingInterval(uint16* interval) 
-{
-  GAP_SetParamValue( TGAP_LIM_DISC_ADV_INT_MIN, *interval );
-  GAP_SetParamValue( TGAP_LIM_DISC_ADV_INT_MAX, *interval );
-  GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MIN, *interval );
-  GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MAX, *interval );
 }
