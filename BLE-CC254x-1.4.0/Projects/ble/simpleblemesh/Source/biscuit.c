@@ -78,13 +78,13 @@ SOFTWARE.
 
 
 // Minimum connection interval (units of 1.25ms, 80=100ms) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_MIN_CONN_INTERVAL     200
+#define DEFAULT_DESIRED_MIN_CONN_INTERVAL     16
 
 // Maximum connection interval (units of 1.25ms, 800=1000ms) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     800
+#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     16
 
 // Slave latency to use if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_SLAVE_LATENCY         1
+#define DEFAULT_DESIRED_SLAVE_LATENCY         0
 
 // Supervision timeout value (units of 10ms, 1000=10s) if automatic parameter update request is enabled
 #define DEFAULT_DESIRED_CONN_TIMEOUT          1000
@@ -191,22 +191,6 @@ static uint8 advertData[31] =
 
 // GAP GATT Attributes
 static uint8 attDeviceName[GAP_DEVICE_NAME_LEN] = "EHMARINE";
-
-
-// Number of scan results and scan result index
-static uint8 simpleBLEScanRes;
-static uint8 simpleBLEScanIdx;
-
-// Scan result list
-static gapDevRec_t simpleBLEDevList[DEFAULT_MAX_SCAN_RES];
-
-// Scanning state
-static uint8 simpleBLEScanning = FALSE;
-static uint8 infoEvent = 0; 
-static uint8 discoveryEvent = 0;
-static uint32 timeReceived = 0;
-static uint32 timeHandled = 0;
-
 uint8 isForwarding = FALSE;
 
 uint8 count = 0;
@@ -221,10 +205,6 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent );
 static void advertiseCallback(uint8* data, uint8 length);
 static void messageCallback(uint8* data, uint8 length);
 static void setAdvertisingInterval(uint16* interval);
-#if defined( CC2540_MINIDK )
-static void biscuit_HandleKeys( uint8 shift, uint8 keys );
-#endif
-
 static void dataHandler( uint8 port, uint8 events );
 
 /*********************************************************************
@@ -324,17 +304,8 @@ void Biscuit_Init( uint8 task_id )
   
   uint24 networkID = eeprom_read_long(NETWORK_ID_ADR);
   uint16 nodeID = (uint16) eeprom_read_long(NODE_ID_ADR);
-  
-  /*advertData[5] = (uint8) ((networkID >> 16) & 0xFF);
-  advertData[6] = (uint8) ((networkID >> 8) & 0xFF),
-  advertData[7] = (uint8) networkID;
-  */
-  uint8 nodeName[20];
-  //
-  //eeprom_read_bytes(NETWORK_NAME_ADR, &advertData[8], 20);
-  //eeprom_read_bytes(NODE_NAME_ADR, (uint8*)nodeName, sizeof(nodeName));		
+  //eeprom_read_bytes(NETWORK_NAME_ADR, &advertData[8], 20);		
   GAPRole_SetParameter(GAPROLE_ADVERT_DATA, sizeof(advertData), advertData);
-  
   initializeMeshConnectionProtocol(networkID,nodeID,&advertiseCallback, &messageCallback, &osal_GetSystemClock);
   
 #endif
@@ -397,10 +368,8 @@ void Biscuit_Init( uint8 task_id )
     U0GCR &= 0xE0;      // Default baudrate 57600
     U0GCR |= 0x0A;
     U0BAUD = 216;
-    
-    
-    
   }
+  
   //Set txPower
   HCI_EXT_SetTxPowerCmd( HCI_EXT_TX_POWER_0_DBM );
   
@@ -561,9 +530,7 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     osal_start_timerEx( biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_INACTIVE );
     
   }
-  
-  
-  
+
   // Discard unknown events
   return 0;
 }
@@ -630,24 +597,13 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     
   case GAPROLE_ADVERTISING:
     {
-      //debugPrintLine("Started advertising");
-        
-      
+      debugPrintLine("GAPROLE_ADVERTISING");
     }
     break;
     
   case GAPROLE_CONNECTED:
     { 
       debugPrintLine("GAPROLE_CONNECTED");
-      
-      
-      // Only turn advertising on for this state when we first connect
-      // otherwise, when we go from connected_advertising back to this state
-      // we will be turning advertising back on.
-      
-      uint8 turnOnAdv = FALSE;
-      // Turn on advertising while in a connection
-      GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv );      
     }
     break;
     
@@ -657,13 +613,8 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     }
     break;      
   case GAPROLE_WAITING:
-    {
-            
-      debugPrintLine("GAPROLE_WAITING");
-      //uint8 turnOnAdv = TRUE;
-      // Turn on advertising while in a connection
-      //GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv );  
-     
+    {      
+      debugPrintLine("GAPROLE_WAITING"); 
     }
     break;
     
@@ -680,12 +631,6 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
       debugPrintLine("GAPROLE ERROR");
     }
     break;
-    
-  default:
-    {
-    }
-    break;
-    
   }
   
   gapProfileState = newState;
@@ -758,9 +703,6 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
       }
     }
     break;
-    
-  default:
-    break;
   }
 }
 
@@ -782,20 +724,7 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 */
 static void performPeriodicTask( void )
 {
-  
-  /*MessageHeader head;
-  head.networkIdentifier = 0x080007;
-  head.length = 10;
-  head.type = 1;
-  head.source = 0xAABB;
-  head.sequenceID = 1;
-  
-  uint8* u = (uint8*) &head;
-  */
-  //debugPrintRawArray(u, 8);
-  
-  
-  
+
 }
 
 /*********************************************************************

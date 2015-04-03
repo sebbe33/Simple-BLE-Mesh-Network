@@ -243,43 +243,28 @@ bStatus_t GAPRole_SetParameter( uint16 param, uint8 len, void *pValue )
   case GAPROLE_ADVERT_ENABLED:
     if ( len == sizeof( uint8 ) )
     {
-      if ( (gapRole_state == GAPROLE_CONNECTED) || (gapRole_state == GAPROLE_CONNECTED_ADV) )
+      uint8 oldAdvEnabled = gapRole_AdvEnabled;
+      gapRole_AdvEnabled = *((uint8*)pValue);
+      
+      if ( (oldAdvEnabled) && (gapRole_AdvEnabled == FALSE) )
       {
-        uint8 advEnabled = *((uint8*)pValue);
-        
-        if ( (gapRole_state == GAPROLE_CONNECTED) && (advEnabled == TRUE) )
+        // Turn off Advertising
+        if ( ( gapRole_state == GAPROLE_ADVERTISING ) 
+            || ( gapRole_state == GAPROLE_CONNECTED_ADV )
+              || ( gapRole_state == GAPROLE_WAITING_AFTER_TIMEOUT ) )
         {
-          // Turn on advertising
-          osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
-        }
-        else if ( (gapRole_state == GAPROLE_CONNECTED_ADV) && (advEnabled == FALSE) )
-        {
-          // Turn off Advertising
-          GAP_EndDiscoverable( gapRole_TaskID );
+          VOID GAP_EndDiscoverable( gapRole_TaskID );
         }
       }
-      else
-      {  
-        uint8 oldAdvEnabled = gapRole_AdvEnabled;
-        gapRole_AdvEnabled = *((uint8*)pValue);
-        
-        if ( (oldAdvEnabled) && (gapRole_AdvEnabled == FALSE) )
-        {
-          // Turn off Advertising
-          if ( gapRole_state == GAPROLE_ADVERTISING )
-          {
-            VOID GAP_EndDiscoverable( gapRole_TaskID );
-          }
-        }
-        else if ( (oldAdvEnabled == FALSE) && (gapRole_AdvEnabled) )
-        {
-          // Turn on Advertising
-          if ( (gapRole_state == GAPROLE_STARTED)
-              || (gapRole_state == GAPROLE_WAITING)
+      else if ( (oldAdvEnabled == FALSE) && (gapRole_AdvEnabled) )
+      {
+        // Turn on Advertising
+        if ( (gapRole_state == GAPROLE_STARTED)
+            || (gapRole_state == GAPROLE_WAITING)
+              || (gapRole_state == GAPROLE_CONNECTED)
                 || (gapRole_state == GAPROLE_WAITING_AFTER_TIMEOUT) )
-          {
-            VOID osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
-          }
+        {
+          VOID osal_set_event( gapRole_TaskID, START_ADVERTISING_EVT );
         }
       }
     }
@@ -810,7 +795,7 @@ uint16 GAPRole_ProcessEvent( uint8 task_id, uint16 events )
       params.filterPolicy = gapRole_AdvFilterPolicy;
       
       gapStatus__ = GAP_MakeDiscoverable(gapRole_TaskID, &params );
-            
+
       if ( gapStatus__ != SUCCESS )
       {
         gapRole_state = GAPROLE_ERROR;
@@ -820,7 +805,7 @@ uint16 GAPRole_ProcessEvent( uint8 task_id, uint16 events )
         {
           pGapRoles_AppCGs->pfnStateChange( gapRole_state );
         }
-      }
+      } 
     }
     return ( events ^ START_ADVERTISING_EVT );
   }
@@ -1022,7 +1007,6 @@ static void gapRole_ProcessGAPMsg( gapEventHdr_t *pMsg )
   case GAP_END_DISCOVERABLE_DONE_EVENT:
     {
       gapMakeDiscoverableRspEvent_t *pPkt = (gapMakeDiscoverableRspEvent_t *)pMsg;
-      
       if ( pPkt->hdr.status == SUCCESS )
       {
         if ( pMsg->opcode == GAP_MAKE_DISCOVERABLE_DONE_EVENT )
@@ -1036,8 +1020,6 @@ static void gapRole_ProcessGAPMsg( gapEventHdr_t *pMsg )
           {
             gapRole_state = GAPROLE_ADVERTISING;
           }
-          
-          //gapRole_state = GAPROLE_ADVERTISING;
         }
         else // GAP_END_DISCOVERABLE_DONE_EVENT
         {

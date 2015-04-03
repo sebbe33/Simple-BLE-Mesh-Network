@@ -340,7 +340,7 @@ static gattAttribute_t meshAttrTbl[] =
       // Characteristic Value 7
       { 
         { ATT_UUID_SIZE, NetworkUUID },
-        GATT_PERMIT_WRITE | GATT_PERMIT_READ, 
+          GATT_PERMIT_READ, 
         0, 
         networkID 
       },
