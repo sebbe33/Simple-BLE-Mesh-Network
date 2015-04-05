@@ -61,7 +61,7 @@ SOFTWARE.
 /*********************************************************************
 * CONSTANTS
 */
-
+#define MESH_IDENTIFIER         0xBC
 #define NODE_NAME_MAX_SIZE      20
 #define NETWORK_NAME_MAX_SIZE   20
   
@@ -75,7 +75,7 @@ SOFTWARE.
 #define DEFAULT_NODE_NAME               "Default mesh node"
 #define DEFAULT_NODE_ID                 126
 #define DEFAULT_NETWORK_NAME            "BT Mesh Network"
-#define DEFAULT NETWORK_ID              999
+#define DEFAULT_NETWORK_ID              999
 
 // How often to perform periodic event
 #define SBP_PERIODIC_EVT_PERIOD                   6000
@@ -192,6 +192,9 @@ static uint8 advertData[31] =
   GAP_ADTYPE_FLAGS,
   DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
   
+  3,
+  MESH_IDENTIFIER, 0, 0,
+  
   // complete name 
   20,   // length of this data
   GAP_ADTYPE_LOCAL_NAME_COMPLETE,
@@ -299,20 +302,23 @@ void Biscuit_Init( uint8 task_id )
   
 #ifdef BURN_DEFAULTS
   uint8 networkName[20] = DEFAULT_NETWORK_NAME;
-  uint8 nodeName[20] = "DEFAULT_NODE_NAME;
+  uint8 nodeName[20] = DEFAULT_NODE_NAME;
   eeprom_write_long(NETWORK_ID_ADR, DEFAULT_NETWORK_ID);
   eeprom_write_long(NODE_ID_ADR, DEFAULT_NODE_ID);
   eeprom_write_bytes(NETWORK_NAME_ADR, networkName, sizeof(networkName));
   eeprom_write_bytes(NODE_NAME_ADR, nodeName, sizeof(nodeName));
 #else
   uint16 networkID = (uint16) eeprom_read_long(NETWORK_ID_ADR);
+  // Write network ID to advertising data
+  *((uint16*) &advertData[5]) = networkID;
   uint16 nodeID = (uint16) eeprom_read_long(NODE_ID_ADR);
-  eeprom_read_bytes(NETWORK_NAME_ADR, &advertData[5], 20);
+  eeprom_read_bytes(NETWORK_NAME_ADR, &advertData[9], 20);
+  initializeMeshConnectionProtocol(networkID,nodeID,&advertiseCallback, 
+                                   &messageCallback, &osal_GetSystemClock);
 #endif
   
   GAPRole_SetParameter(GAPROLE_ADVERT_DATA, sizeof(advertData), advertData);
-  initializeMeshConnectionProtocol(networkID,nodeID,&advertiseCallback, 
-                                   &messageCallback, &osal_GetSystemClock);
+  
   
   // Setup observer related GAP profile properties
   {
