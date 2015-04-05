@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">ExampleApp</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Settings</string>
+
+    <string-array name="message_types">
+        <item>BROADCAST</item>
+        <item>GROUP_BROADCAST</item>
+        <item>STATELESS_MESSAGE</item>
+        <item>STATEFUL_MESSAGE</item>
+    </string-array>
+
+</resources>
