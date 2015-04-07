@@ -61,30 +61,41 @@ SOFTWARE.
 /*********************************************************************
 * CONSTANTS
 */
+#define MESH_IDENTIFIER         0xBC
+#define NODE_NAME_MAX_SIZE      20
+#define NETWORK_NAME_MAX_SIZE   20
+  
+#define NETWORK_ID_ADR		1
+#define NODE_ID_ADR		5
+#define NETWORK_NAME_ADR	9
+#define NODE_NAME_ADR		9 + NETWORK_NAME_MAX_SIZE
+
+// Uncomment this to burn default values into persistent memory
+//#define BURN_DEFAULTS
+#define DEFAULT_NODE_NAME               "Default mesh node"
+#define DEFAULT_NODE_ID                 126
+#define DEFAULT_NETWORK_NAME            "BT Mesh Network"
+#define DEFAULT_NETWORK_ID              999
 
 // How often to perform periodic event
 #define SBP_PERIODIC_EVT_PERIOD                   6000
 
 // What is the advertising interval when device is discoverable (units of 625us, 160=100ms)
 #define DEFAULT_ADVERTISING_INTERVAL 33
-#define DEFAULT_ADVERTISING_INTERVAL_CONNECTION 160
 
 #define FORWARDING_INTERVAL 100
-// Limited discoverable mode advertises for 30.72s, and then stops
+
 // General discoverable mode advertises indefinitely
-
-
 #define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_GENERAL
 
-
 // Minimum connection interval (units of 1.25ms, 80=100ms) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_MIN_CONN_INTERVAL     200
+#define DEFAULT_DESIRED_MIN_CONN_INTERVAL     16
 
 // Maximum connection interval (units of 1.25ms, 800=1000ms) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     800
+#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     16
 
 // Slave latency to use if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_SLAVE_LATENCY         1
+#define DEFAULT_DESIRED_SLAVE_LATENCY         0
 
 // Supervision timeout value (units of 10ms, 1000=10s) if automatic parameter update request is enabled
 #define DEFAULT_DESIRED_CONN_TIMEOUT          1000
@@ -150,10 +161,9 @@ static gaprole_States_t gapProfileState = GAPROLE_INIT;
 static uint8 RXBuf[MAX_RX_LEN];
 static uint8 rxLen = 0;
 static uint8 rxHead = 0, rxTail = 0;
-uint8 isObserving = 0;
-uint8 setInterval =0;
+static uint8 isObserving = FALSE;
+static uint8 isAdvertisingPeriodically = TRUE;
 
-uint32 t1,t2;
 
 // GAP - SCAN RSP data (max size = 31 bytes)
 static uint8 scanRspData[] =
@@ -182,31 +192,17 @@ static uint8 advertData[31] =
   GAP_ADTYPE_FLAGS,
   DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
   
+  3,
+  MESH_IDENTIFIER, 0, 0,
+  
   // complete name 
-  11,   // length of this data
+  20,   // length of this data
   GAP_ADTYPE_LOCAL_NAME_COMPLETE,
-  'B','L','E',' ','M','a','n','o','a','b',
 };
 
 
 // GAP GATT Attributes
 static uint8 attDeviceName[GAP_DEVICE_NAME_LEN] = "EHMARINE";
-
-
-// Number of scan results and scan result index
-static uint8 simpleBLEScanRes;
-static uint8 simpleBLEScanIdx;
-
-// Scan result list
-static gapDevRec_t simpleBLEDevList[DEFAULT_MAX_SCAN_RES];
-
-// Scanning state
-static uint8 simpleBLEScanning = FALSE;
-static uint8 infoEvent = 0; 
-static uint8 discoveryEvent = 0;
-static uint32 timeReceived = 0;
-static uint32 timeHandled = 0;
-
 uint8 isForwarding = FALSE;
 
 uint8 count = 0;
@@ -220,11 +216,6 @@ static void meshServiceChangeCB( uint8 paramID );
 static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent );
 static void advertiseCallback(uint8* data, uint8 length);
 static void messageCallback(uint8* data, uint8 length);
-static void setAdvertisingInterval(uint16* interval);
-#if defined( CC2540_MINIDK )
-static void biscuit_HandleKeys( uint8 shift, uint8 keys );
-#endif
-
 static void dataHandler( uint8 port, uint8 events );
 
 /*********************************************************************
@@ -309,35 +300,25 @@ void Biscuit_Init( uint8 task_id )
   
   GGS_SetParameter( GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, attDeviceName );
   
-  //#define setup
-#ifdef setup
-  uint24 networkID = 666;
-  uint16 nodeID = 11;
-  uint8 networkName[20] = "ehmarineehmarine";
-  uint8 nodeName[20] = "node1";
-  
-  eeprom_write_long(NETWORK_ID_ADR, networkID);
-  eeprom_write_long(NODE_ID_ADR, nodeID);
+#ifdef BURN_DEFAULTS
+  uint8 networkName[20] = DEFAULT_NETWORK_NAME;
+  uint8 nodeName[20] = DEFAULT_NODE_NAME;
+  eeprom_write_long(NETWORK_ID_ADR, DEFAULT_NETWORK_ID);
+  eeprom_write_long(NODE_ID_ADR, DEFAULT_NODE_ID);
   eeprom_write_bytes(NETWORK_NAME_ADR, networkName, sizeof(networkName));
   eeprom_write_bytes(NODE_NAME_ADR, nodeName, sizeof(nodeName));
 #else
-  
-  uint24 networkID = eeprom_read_long(NETWORK_ID_ADR);
+  uint16 networkID = (uint16) eeprom_read_long(NETWORK_ID_ADR);
+  // Write network ID to advertising data
+  *((uint16*) &advertData[5]) = networkID;
   uint16 nodeID = (uint16) eeprom_read_long(NODE_ID_ADR);
+  eeprom_read_bytes(NETWORK_NAME_ADR, &advertData[9], 20);
+  initializeMeshConnectionProtocol(networkID,nodeID,&advertiseCallback, 
+                                   &messageCallback, &osal_GetSystemClock);
+#endif
   
-  /*advertData[5] = (uint8) ((networkID >> 16) & 0xFF);
-  advertData[6] = (uint8) ((networkID >> 8) & 0xFF),
-  advertData[7] = (uint8) networkID;
-  */
-  uint8 nodeName[20];
-  //
-  //eeprom_read_bytes(NETWORK_NAME_ADR, &advertData[8], 20);
-  //eeprom_read_bytes(NODE_NAME_ADR, (uint8*)nodeName, sizeof(nodeName));		
   GAPRole_SetParameter(GAPROLE_ADVERT_DATA, sizeof(advertData), advertData);
   
-  initializeMeshConnectionProtocol(networkID,nodeID,&advertiseCallback, &messageCallback, &osal_GetSystemClock);
-  
-#endif
   
   // Setup observer related GAP profile properties
   {
@@ -347,8 +328,11 @@ void Biscuit_Init( uint8 task_id )
   
   // Set advertising interval
   {
-    uint16 advInt = DEFAULT_ADVERTISING_INTERVAL;
-    setAdvertisingInterval(&advInt);
+    uint16 interval = DEFAULT_ADVERTISING_INTERVAL;
+    GAP_SetParamValue( TGAP_LIM_DISC_ADV_INT_MIN, interval );
+    GAP_SetParamValue( TGAP_LIM_DISC_ADV_INT_MAX, interval );
+    GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MIN, interval );
+    GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MAX, interval );
   }
   
   {
@@ -397,18 +381,13 @@ void Biscuit_Init( uint8 task_id )
     U0GCR &= 0xE0;      // Default baudrate 57600
     U0GCR |= 0x0A;
     U0BAUD = 216;
-    
-    
-    
   }
+  
   //Set txPower
   HCI_EXT_SetTxPowerCmd( HCI_EXT_TX_POWER_0_DBM );
   
   // Setup a delayed profile startup
   osal_set_event( biscuit_TaskID, SBP_START_DEVICE_EVT );
-
-  osal_start_timerEx( biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_EAGER );
-
 }
 
 /*********************************************************************
@@ -467,6 +446,9 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     
     //Start observing
     osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 25);
+    
+    // Start periodic advertisement
+    osal_start_timerEx( biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_EAGER);
     
     return ( events ^ SBP_START_DEVICE_EVT );
   }
@@ -535,7 +517,7 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     }    
     isObserving = 1;
   }
-  if(events & SBP_START_ADV_PERIOD)
+  if((events & SBP_START_ADV_PERIOD) && isAdvertisingPeriodically == TRUE)
   {
     if(isForwarding == FALSE){
       // Set back the default advertising data and advertising period
@@ -545,12 +527,12 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
       uint8 dummy = TRUE;
       GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy);  
       osal_start_timerEx( biscuit_TaskID, SBP_STOP_ADV_PERIOD, ADV_PERIOD );
-    }else{
+    } else{
       osal_start_timerEx( biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_EAGER );
     }
   }
   
-  if(events & SBP_STOP_ADV_PERIOD)
+  if((events & SBP_STOP_ADV_PERIOD) && isAdvertisingPeriodically == TRUE)
   {
     if(isForwarding == FALSE){
       // Turn on advertisements
@@ -561,9 +543,7 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     osal_start_timerEx( biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_INACTIVE );
     
   }
-  
-  
-  
+
   // Discard unknown events
   return 0;
 }
@@ -600,7 +580,6 @@ static void biscuit_ProcessOSALMsg( osal_event_hdr_t *pMsg )
 */
 static void peripheralStateNotificationCB( gaprole_States_t newState )
 {  
-  static uint8 first_conn_flag = 0;
   switch ( newState )
   {
   case GAPROLE_STARTED:
@@ -630,24 +609,20 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     
   case GAPROLE_ADVERTISING:
     {
-      //debugPrintLine("Started advertising");
-        
-      
+      debugPrintLine("GAPROLE_ADVERTISING");
     }
     break;
     
   case GAPROLE_CONNECTED:
     { 
+      if(isAdvertisingPeriodically == TRUE) {
+        // If we're advertising periodically, turn it off while in connection
+        isAdvertisingPeriodically = FALSE;
+        debugPrintLine("Turning off");
+        osal_stop_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD);
+        osal_stop_timerEx(biscuit_TaskID, SBP_STOP_ADV_PERIOD);
+      }
       debugPrintLine("GAPROLE_CONNECTED");
-      
-      
-      // Only turn advertising on for this state when we first connect
-      // otherwise, when we go from connected_advertising back to this state
-      // we will be turning advertising back on.
-      
-      uint8 turnOnAdv = FALSE;
-      // Turn on advertising while in a connection
-      GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv );      
     }
     break;
     
@@ -657,21 +632,21 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     }
     break;      
   case GAPROLE_WAITING:
-    {
-            
-      debugPrintLine("GAPROLE_WAITING");
-      //uint8 turnOnAdv = TRUE;
-      // Turn on advertising while in a connection
-      //GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv );  
-     
+    {      
+      debugPrintLine("GAPROLE_WAITING"); 
+      if(isAdvertisingPeriodically == FALSE) {
+        // Restart periodic advertisement after disconnection
+        osal_stop_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD);
+        osal_stop_timerEx(biscuit_TaskID, SBP_STOP_ADV_PERIOD);
+        osal_start_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_EAGER);
+        isAdvertisingPeriodically = TRUE;
+      }
     }
     break;
     
   case GAPROLE_WAITING_AFTER_TIMEOUT:
     {
       debugPrintLine("GAPROLE_WAITING_AFTER_TIMEOUT");
-      // Reset flag for next connection.
-      first_conn_flag = 0;
     }
     break;
     
@@ -680,12 +655,6 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
       debugPrintLine("GAPROLE ERROR");
     }
     break;
-    
-  default:
-    {
-    }
-    break;
-    
   }
   
   gapProfileState = newState;
@@ -758,9 +727,6 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
       }
     }
     break;
-    
-  default:
-    break;
   }
 }
 
@@ -782,20 +748,7 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 */
 static void performPeriodicTask( void )
 {
-  
-  /*MessageHeader head;
-  head.networkIdentifier = 0x080007;
-  head.length = 10;
-  head.type = 1;
-  head.source = 0xAABB;
-  head.sequenceID = 1;
-  
-  uint8* u = (uint8*) &head;
-  */
-  //debugPrintRawArray(u, 8);
-  
-  
-  
+
 }
 
 /*********************************************************************
@@ -816,7 +769,7 @@ static void meshServiceChangeCB( uint8 paramID )
   {
     MESH_GetParameter(RX_MESSAGE_CHAR, &len, data);
     uint8 length = data[0];
-    MessageType type = data[1];
+    MessageType type = (MessageType) data[1];
     uint16 dest = (data[3] << 8) | data[2];
     uint8* message = &data[4];
     
@@ -861,36 +814,20 @@ static void meshServiceChangeCB( uint8 paramID )
   }
   else if (paramID == DEV_NAME_CHANGED)
   {
-    //TODO: Set name
-    /*
-    uint8 newDevName[GAP_DEVICE_NAME_LEN];
-    MESH_GetParameter(DEV_NAME_CHAR, &len, newDevName);
-    
-    uint8 devNamePermission = GATT_PERMIT_READ|GATT_PERMIT_WRITE; 
-    GGS_SetParameter( GGS_W_PERMIT_DEVICE_NAME_ATT, sizeof ( uint8 ), &devNamePermission );
-    newDevName[ len ] = '\0';
-    GGS_SetParameter( GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, newDevName );
-    
-    advertData[3] = len + 1;
-    osal_memcpy(&advertData[5], newDevName, len);
-    osal_memset(&advertData[len+5], 0, 31-5-len);
-    GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( advertData ), advertData );
-    
-    eeprom_write(5, len);
-    for(uint8 i=0; i<len; i++)
-    {
-    eeprom_write(i+8, newDevName[i]);
-  }
-    */
+    // Write new node name to persistent memory
+    MESH_GetParameter(DEV_NAME_CHAR, &len, data);
+    if(len > NODE_NAME_MAX_SIZE) {
+      len = NODE_NAME_MAX_SIZE;
+    }
+    eeprom_write_bytes(NODE_NAME_ADR, data, len);
   }
   else if (paramID == NETWORK_SET)
   {
-    uint24 newNetwork;
-    MESH_GetParameter(NETWORK_CHAR, &len, &data);
-    newNetwork = (data[2] << 16) | (data[1] << 8) | data[0];
-    //eeprom_write_bytes(NETWORK_ID_ADR, (uint8*)&newNetwork, sizeof(uint24));
-    //TODO
-    
+    MESH_GetParameter(NETWORK_CHAR, &len, data);
+    if(len > NETWORK_NAME_MAX_SIZE) {
+        len = NETWORK_NAME_MAX_SIZE;
+    }
+    eeprom_write_bytes(NETWORK_NAME_ADR, data, len);
   }
 }
 
@@ -973,18 +910,9 @@ static void advertiseCallback(uint8* data, uint8 length)
   
   // Start delayed observing
   osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 60);
-  flag = 1;
   debugPrintLine("Forwarding");
 }
 static void messageCallback(uint8* data, uint8 length)
 {
   debugPrintLine("Got message");
-}
-
-static void setAdvertisingInterval(uint16* interval) 
-{
-  GAP_SetParamValue( TGAP_LIM_DISC_ADV_INT_MIN, *interval );
-  GAP_SetParamValue( TGAP_LIM_DISC_ADV_INT_MAX, *interval );
-  GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MIN, *interval );
-  GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MAX, *interval );
 }
