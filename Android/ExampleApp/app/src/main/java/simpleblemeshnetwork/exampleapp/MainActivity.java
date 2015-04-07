@@ -38,6 +38,7 @@ public class MainActivity extends ActionBarActivity {
     private ArrayAdapter<NetworkIdentifier> scanResultsArrayAdapter;
     private Spinner appTypeSpinner, messageTypeSpinner;
     private EditText messageTextField;
+    private EditText destTextField;
     private Button sendButton, disconnectButton;
 
     private ConnectionManager conMan;
@@ -67,6 +68,7 @@ public class MainActivity extends ActionBarActivity {
 
         messageTypeSpinner = (Spinner) findViewById(R.id.messageTypeSpinner);
         messageTextField = (EditText) findViewById(R.id.messageTextField);
+        destTextField = (EditText) findViewById(R.id.destTextField);
 
         sendButton = (Button) findViewById(R.id.sendButton);
         sendButton.setOnClickListener(sendButtonListener);
@@ -169,15 +171,19 @@ public class MainActivity extends ActionBarActivity {
             MeshNodeApplication app = MeshNodeApplicationImpl.values()[appTypeSpinner.getSelectedItemPosition()];
             String msg = messageTextField.getText().toString();
 
+
             switch (MessageType.valueOf(messageTypeSpinner.getSelectedItem().toString())) {
                 case BROADCAST:
                     messageManager.sendBroadcast(app,msg);
                     break;
                 case GROUP_BROADCAST:
+                    messageManager.sendGroupBroadcast((short)Integer.parseInt(destTextField.getText().toString()), app, msg);
                     break;
                 case STATELESS_MESSAGE:
+                    messageManager.sendStatelessMessage((short)Integer.parseInt(destTextField.getText().toString()), app, msg);
                     break;
                 case STATEFUL_MESSAGE:
+                    messageManager.sendStatefulMessage((short)Integer.parseInt(destTextField.getText().toString()), app, msg);
                     break;
             }
 

@@ -49,6 +49,19 @@
         android:maxLines="1"
         android:maxLength="21" />
 
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/destTextField"
+        android:layout_marginTop="10dp"
+        android:layout_below="@+id/destTitle"
+        android:layout_alignParentStart="true"
+        android:editable="false"
+        android:inputType="text"
+        android:maxLines="1"
+        android:maxLength="21"
+        />
+
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -97,4 +110,14 @@
         android:layout_below="@+id/messageTypeSpinner"
         android:layout_alignParentStart="true"
         android:layout_marginTop="21dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:text="Destination"
+        android:id="@+id/destTitle"
+        android:layout_below="@+id/messageTextField"
+        android:layout_alignParentStart="true" />
+
 </RelativeLayout>
