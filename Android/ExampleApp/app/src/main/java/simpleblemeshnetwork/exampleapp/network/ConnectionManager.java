@@ -25,6 +25,8 @@ public interface ConnectionManager extends Pauseable{
     public void establishConnection(NetworkIdentifier networkId, ConnectionCallback callback);
 
     public void discontinueConnection(Connection connection);
+
+    public MeshBluetoothService getbtService();
 }
 
 

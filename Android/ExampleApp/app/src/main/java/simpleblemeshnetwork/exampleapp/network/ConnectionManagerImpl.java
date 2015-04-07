@@ -148,7 +148,9 @@ public class ConnectionManagerImpl implements ConnectionManager {
             if(!results.contains(id)) {
                 id.setConnectionDetails(id.new ConnectionDetails(device.getAddress(), rssi));
                 results.add(id);
-                scanResultCallback.onNetworkFound(id);
+                if(scanResultCallback != null) {
+                    scanResultCallback.onNetworkFound(id);
+                }
             } else {
                 id = results.get(results.indexOf(id));
                 if(id.getConnectionDetails().getRssi() < rssi) {
@@ -209,5 +211,9 @@ public class ConnectionManagerImpl implements ConnectionManager {
     public void onResume () {
         initializeServiceConnection();
         startBroadcastReceiver();
+    }
+
+    public MeshBluetoothService getbtService(){
+        return meshBluetoothService;
     }
 }

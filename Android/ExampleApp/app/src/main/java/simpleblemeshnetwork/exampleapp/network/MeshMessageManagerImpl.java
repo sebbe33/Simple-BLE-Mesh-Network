@@ -25,14 +25,15 @@ public class MeshMessageManagerImpl implements MeshMessageManager {
         BluetoothGattCharacteristic rx = btService.getSupportedGattService().
                 getCharacteristic(MeshGattAttributes.UUID_MESH_RX);
         // Length = length(2) + type(1) + destination(2) + applicationId(2) + message.length
-        short length = (short) (7 + message.length);
+        byte length = (byte) (1 + message.length);
 
         // Build the data msg to be sent
-        ByteBuffer b = ByteBuffer.allocate(length);
-        b.putShort(length);
+        ByteBuffer b = ByteBuffer.allocate(length+4);
+        b.put(length);
         b.put(type.code);
         b.putShort(destination);
-        b.putShort(targetApplication.getId());
+
+        b.put(targetApplication.getId());
         b.put(message);
 
         // Write the data msg to the
@@ -50,13 +51,13 @@ public class MeshMessageManagerImpl implements MeshMessageManager {
         BluetoothGattCharacteristic rx = btService.getSupportedGattService().
                 getCharacteristic(MeshGattAttributes.UUID_MESH_RX);
         // Length = length(2) + type(1) + destination(2) + applicationId(2) + message.length
-        short length = (short) (5 + message.length);
+        byte length = (byte) ( 1+ message.length);
 
         // Build the data msg to be sent
-        ByteBuffer b = ByteBuffer.allocate(length);
-        b.putShort(length);
+        ByteBuffer b = ByteBuffer.allocate(length+2);
+        b.put(length);
         b.put(MessageType.BROADCAST.code);
-        b.putShort(targetApplication.getId());
+        b.put(targetApplication.getId());
         b.put(message);
 
         // Write the data msg to the

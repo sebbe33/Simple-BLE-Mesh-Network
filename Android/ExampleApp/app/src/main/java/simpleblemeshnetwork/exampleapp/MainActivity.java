@@ -24,6 +24,8 @@ import simpleblemeshnetwork.exampleapp.network.Connection;
 import simpleblemeshnetwork.exampleapp.network.ConnectionCallback;
 import simpleblemeshnetwork.exampleapp.network.ConnectionManager;
 import simpleblemeshnetwork.exampleapp.network.ConnectionManagerImpl;
+import simpleblemeshnetwork.exampleapp.network.MeshMessageManager;
+import simpleblemeshnetwork.exampleapp.network.MeshMessageManagerImpl;
 import simpleblemeshnetwork.exampleapp.network.MeshNodeApplication;
 import simpleblemeshnetwork.exampleapp.network.MeshNodeApplicationImpl;
 import simpleblemeshnetwork.exampleapp.network.MessageType;
@@ -42,6 +44,7 @@ public class MainActivity extends ActionBarActivity {
     private AlertDialog alert;
     private Button scanAgainButton;
     private Connection activeConnection;
+    private MeshMessageManager messageManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -94,7 +97,9 @@ public class MainActivity extends ActionBarActivity {
                 conMan.establishConnection(scanResultsArrayAdapter.getItem(item), new ConnectionCallback() {
                     @Override
                     public void onSuccess(Connection connection) {
+
                         activeConnection = connection;
+                        messageManager = new MeshMessageManagerImpl(conMan.getbtService(), connection);
                     }
 
                     @Override
@@ -161,12 +166,12 @@ public class MainActivity extends ActionBarActivity {
     private View.OnClickListener sendButtonListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            byte app = MeshNodeApplicationImpl.values()[appTypeSpinner.getSelectedItemPosition()]
-                            .getId();
+            MeshNodeApplication app = MeshNodeApplicationImpl.values()[appTypeSpinner.getSelectedItemPosition()];
             String msg = messageTextField.getText().toString();
 
             switch (MessageType.valueOf(messageTypeSpinner.getSelectedItem().toString())) {
                 case BROADCAST:
+                    messageManager.sendBroadcast(app,msg);
                     break;
                 case GROUP_BROADCAST:
                     break;
