@@ -783,13 +783,13 @@ static void performPeriodicTask( void )
 static void meshServiceChangeCB( uint8 paramID )
 {
   uint8 data[26];
-  uint8 len;
+  uint8 len = paramID;
   
   if (paramID == MESSAGE_READY)
   {
     MESH_GetParameter(RX_MESSAGE_CHAR, &len, data);
     uint8 length = data[0];
-    MessageType type = (MessageType) data[1];
+    uint8 type = data[1];
     uint16 dest = (data[3] << 8) | data[2];
     uint8* message = &data[4];
     
@@ -797,6 +797,7 @@ static void meshServiceChangeCB( uint8 paramID )
     {
     case BROADCAST:
       {
+        message = &data[2];
         broadcastMessage(message, length);
       }
     case GROUP_BROADCAST:
@@ -934,6 +935,11 @@ static void advertiseCallback(uint8* data, uint8 length)
 }
 static void messageCallback(uint8* data, uint8 length)
 {
-
+  for(uint8 i = 0; i < sizeof(applications); i++) {
+    if(applications[i].code == data[0]) {
+      applications[i].fun(&data[1], length - 1);
+      break;
+    }
+  }
   debugPrintLine("Got message");
 }
