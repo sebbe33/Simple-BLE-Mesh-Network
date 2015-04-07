@@ -711,7 +711,7 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
       /*if(flag == 1) {
         flag = 2;
       }*/
-      processIncomingMessage(&data[9], dataLen);
+      processIncomingMessage(&data[9], dataLen-9);
       
       /*MessageHeader* h = (MessageHeader*) &data[9];
       uint16 netId = h->networkIdentifier;
@@ -918,7 +918,7 @@ static void advertiseCallback(uint8* data, uint8 length)
 
   osal_memcpy(&advert[4], data, length);
   
-  debugPrintRawArray(advert, length+4);
+  //debugPrintRawArray(advert, length+4);
    
   GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length+4, advert);
   
@@ -931,7 +931,7 @@ static void advertiseCallback(uint8* data, uint8 length)
   
   // Start delayed observing
   osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 60);
-  debugPrintLine("Forwarding");
+  debugPrintLine("Forw");
 }
 static void messageCallback(uint8* data, uint8 length)
 {
