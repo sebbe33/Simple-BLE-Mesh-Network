@@ -54,6 +54,7 @@ SOFTWARE.
 
 #include "print_uart.h"
 #include "mesh_transport_network_protocol.h"
+#include "relay_switch_application.h"
 /*********************************************************************
 * MACROS
 */
@@ -61,6 +62,8 @@ SOFTWARE.
 /*********************************************************************
 * CONSTANTS
 */
+#define APPLICATIONS_LENGTH     1
+
 #define MESH_IDENTIFIER         0xBC
 #define NODE_NAME_MAX_SIZE      20
 #define NETWORK_NAME_MAX_SIZE   20
@@ -163,7 +166,7 @@ static uint8 rxLen = 0;
 static uint8 rxHead = 0, rxTail = 0;
 static uint8 isObserving = FALSE;
 static uint8 isAdvertisingPeriodically = TRUE;
-
+static Application applications[APPLICATIONS_LENGTH];
 
 // GAP - SCAN RSP data (max size = 31 bytes)
 static uint8 scanRspData[] =
@@ -368,13 +371,25 @@ void Biscuit_Init( uint8 task_id )
   // is halted
   //  HCI_EXT_ClkDivOnHaltCmd( HCI_EXT_ENABLE_CLK_DIVIDE_ON_HALT );
   
+  
+  P0SEL = 0; // Configure Port 0 as GPIO
+  P1SEL = 0; // Configure Port 1 as GPIO
+  P2SEL = 0; // Configure Port 2 as GPIO
+  
+  P0DIR = 0xFF;
+  P1DIR = 0xFF; 
+  P2DIR = 0x1F; 
+
+  P0 = 0; 
+  P1 = 0;   // All pins on port 1 to low
+  P2 = 0;   // All pins on port 2 to low
+  
   // Initialize serial interface
   P1SEL = 0x30;
   P1DIR |= 0x02;
   P1_1 = 1;
   PERCFG |= 1;
   NPI_InitTransport(dataHandler);
-  
   
   //Set baudrate
   {
@@ -385,6 +400,11 @@ void Biscuit_Init( uint8 task_id )
   
   //Set txPower
   HCI_EXT_SetTxPowerCmd( HCI_EXT_TX_POWER_0_DBM );
+  
+  // Initialze applications
+  initializeRelaySwitchApp();
+  applications[0].code = RELAY_SWITCH_CODE;
+  applications[0].fun = &processIcomingMessageRelaySwitch;
   
   // Setup a delayed profile startup
   osal_set_event( biscuit_TaskID, SBP_START_DEVICE_EVT );
@@ -763,13 +783,13 @@ static void performPeriodicTask( void )
 static void meshServiceChangeCB( uint8 paramID )
 {
   uint8 data[26];
-  uint8 len;
+  uint8 len = paramID;
   
   if (paramID == MESSAGE_READY)
   {
     MESH_GetParameter(RX_MESSAGE_CHAR, &len, data);
     uint8 length = data[0];
-    MessageType type = (MessageType) data[1];
+    uint8 type = data[1];
     uint16 dest = (data[3] << 8) | data[2];
     uint8* message = &data[4];
     
@@ -777,6 +797,7 @@ static void meshServiceChangeCB( uint8 paramID )
     {
     case BROADCAST:
       {
+        message = &data[2];
         broadcastMessage(message, length);
       }
     case GROUP_BROADCAST:
@@ -914,5 +935,11 @@ static void advertiseCallback(uint8* data, uint8 length)
 }
 static void messageCallback(uint8* data, uint8 length)
 {
+  for(uint8 i = 0; i < sizeof(applications); i++) {
+    if(applications[i].code == data[0]) {
+      applications[i].fun(&data[1], length - 1);
+      break;
+    }
+  }
   debugPrintLine("Got message");
 }
