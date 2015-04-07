@@ -4362,6 +4362,12 @@
     <file>
       <name>$PROJ_DIR$\..\Source\print_uart.h</name>
     </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\relay_switch_application.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\relay_switch_application.h</name>
+    </file>
   </group>
   <group>
     <name>HAL</name>

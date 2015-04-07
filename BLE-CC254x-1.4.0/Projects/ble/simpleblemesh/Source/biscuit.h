@@ -30,6 +30,12 @@ extern "C"
 {
 #endif
 
+typedef void (*applicationProcessMessageFunction)(uint8* data, uint8 length);
+typedef struct {
+    uint8 code;
+    applicationProcessMessageFunction fun;
+} Application;
+  
 /*********************************************************************
  * INCLUDES
  */
