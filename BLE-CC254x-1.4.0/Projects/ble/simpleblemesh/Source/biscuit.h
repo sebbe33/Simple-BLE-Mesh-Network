@@ -54,6 +54,7 @@ typedef struct {
 #define SBP_START_OBSERVING                               0x0010
 #define SBP_START_ADV_PERIOD                              0x0020
 #define SBP_STOP_ADV_PERIOD                               0x0040
+#define SBP_PROCESS_QUEUE_EVENT                           0x0080
 
 /*********************************************************************
  * MACROS

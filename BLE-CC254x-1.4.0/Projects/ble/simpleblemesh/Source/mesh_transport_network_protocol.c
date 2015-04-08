@@ -1,11 +1,13 @@
 #include "mesh_transport_network_protocol.h"
 #define PROCESSED_MESSAGE_LENGTH 100
 #define REMOVE_PROCESSED_MESSAGE_AFTER 3000
-#define PENDING_ACK_MAX 10
-#define PENDING_ACK_RESEND_TIMEOUT 1000
+#define PENDING_ACK_MAX 5
+#define PENDING_ACK_RESEND_TIMEOUT 5000
 #define GROUP_MEMBERSHIP_MAX 40
 #define HEADER_SIZE sizeof(MessageHeader)
-#include <stdio.h>
+
+#include "print_uart.h"
+
 /* Private varialbles */
 static uint16 networkIdentifier; 
 static uint16 id;
@@ -129,7 +131,7 @@ void broadcastMessage(uint8* message, uint8 length)
     }
     
     advertise(data, length + 6);
-	forwardMessageToApp(message, length);
+    forwardMessageToApp(message, length);
 }
 
 void broadcastGroupMessage(uint16 groupDestination, uint8* message, uint8 length)

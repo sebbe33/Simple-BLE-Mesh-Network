@@ -81,12 +81,14 @@ SOFTWARE.
 #define DEFAULT_NETWORK_ID              999
 
 // How often to perform periodic event
-#define SBP_PERIODIC_EVT_PERIOD                   6000
+#define SBP_PERIODIC_EVT_PERIOD                   2500
 
 // What is the advertising interval when device is discoverable (units of 625us, 160=100ms)
 #define DEFAULT_ADVERTISING_INTERVAL 33
+#define DEFAULT_ADVERTISING_IN_CONNECTION_INTERVAL 165
 
 #define FORWARDING_INTERVAL 100
+#define FORWARDING_IN_CONNECTION_INTERVAL 300
 
 // General discoverable mode advertises indefinitely
 #define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_GENERAL
@@ -134,10 +136,11 @@ SOFTWARE.
 #define DEFAULT                               1
 #define FORWARD                               2
 
-#define ADV_PERIOD_INACTIVE                   4000
-#define ADV_PERIOD                            100
+#define ADV_PERIOD_INACTIVE                   5000
+#define ADV_PERIOD                            180
 #define ADV_PERIOD_EAGER                      500
 
+#define QUEUE_SIZE 5
 /*********************************************************************
 * TYPEDEFS
 */
@@ -160,13 +163,15 @@ SOFTWARE.
 static uint8 biscuit_TaskID;   // Task ID for internal task/event processing
 uint8 flag = 0;
 static gaprole_States_t gapProfileState = GAPROLE_INIT;
-
 static uint8 RXBuf[MAX_RX_LEN];
 static uint8 rxLen = 0;
 static uint8 rxHead = 0, rxTail = 0;
 static uint8 isObserving = FALSE;
 static uint8 isAdvertisingPeriodically = TRUE;
 static Application applications[APPLICATIONS_LENGTH];
+static uint8 advertisingQueue[QUEUE_SIZE][32];
+static uint8 queueIndex = 0;
+static uint8 isProcessingQueue = FALSE;
 
 // GAP - SCAN RSP data (max size = 31 bytes)
 static uint8 scanRspData[] =
@@ -336,6 +341,9 @@ void Biscuit_Init( uint8 task_id )
     GAP_SetParamValue( TGAP_LIM_DISC_ADV_INT_MAX, interval );
     GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MIN, interval );
     GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MAX, interval );
+    interval = DEFAULT_ADVERTISING_IN_CONNECTION_INTERVAL;
+    GAP_SetParamValue( TGAP_CONN_ADV_INT_MIN, interval );
+    GAP_SetParamValue( TGAP_CONN_ADV_INT_MAX, interval );
   }
   
   {
@@ -380,7 +388,7 @@ void Biscuit_Init( uint8 task_id )
   P1DIR = 0xFF; 
   P2DIR = 0x1F; 
 
-  P0 = 0; 
+  P0 = 0x80; 
   P1 = 0;   // All pins on port 1 to low
   P2 = 0;   // All pins on port 2 to low
   
@@ -520,11 +528,14 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
   
   if (events & SBP_FORWARDING_DONE_EVENT) 
   {
-    isForwarding = FALSE;
-    // Turn off advertisements
-    uint8 dummy = FALSE;
-    GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy);
-    
+    if(isProcessingQueue == TRUE) {
+      // There are items in the queue, call the process queue event
+      // to process the queue
+      osal_set_event(biscuit_TaskID, SBP_PROCESS_QUEUE_EVENT);
+    } else {
+      isForwarding = FALSE;
+      GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &isForwarding);   
+    } 
   }
   
   if(events & SBP_START_OBSERVING)
@@ -537,6 +548,7 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     }    
     isObserving = 1;
   }
+  
   if((events & SBP_START_ADV_PERIOD) && isAdvertisingPeriodically == TRUE)
   {
     if(isForwarding == FALSE){
@@ -562,6 +574,32 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     
     osal_start_timerEx( biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_INACTIVE );
     
+  }
+  
+  if(events & SBP_PROCESS_QUEUE_EVENT)
+  {
+    isForwarding = TRUE;
+    
+    // Set advertise data to the first message in the queue
+    GAPRole_SetParameter( GAPROLE_ADVERT_DATA, advertisingQueue[0][31]+4, advertisingQueue[0]);
+    
+    //Start advertising
+    uint8 dummy = TRUE;
+    GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy );
+    
+    if(queueIndex > 0) {
+      // Decrement all in queue
+      for(uint8 i = 0; i < queueIndex; i++) {
+        memcpy(advertisingQueue[i], advertisingQueue[i+1], 31);
+      }
+      queueIndex--;
+      osal_start_timerEx( biscuit_TaskID, SBP_PROCESS_QUEUE_EVENT, 
+                         isAdvertisingPeriodically == TRUE? FORWARDING_INTERVAL : FORWARDING_IN_CONNECTION_INTERVAL );
+    } else {
+      isForwarding = FALSE;
+      isProcessingQueue = FALSE;
+      GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &isForwarding);  
+    }
   }
 
   // Discard unknown events
@@ -636,12 +674,14 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
   case GAPROLE_CONNECTED:
     { 
       if(isAdvertisingPeriodically == TRUE) {
+        P0_7 = 0; // Turn on blue led to indicate connection
         // If we're advertising periodically, turn it off while in connection
         isAdvertisingPeriodically = FALSE;
         debugPrintLine("Turning off");
         osal_stop_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD);
         osal_stop_timerEx(biscuit_TaskID, SBP_STOP_ADV_PERIOD);
       }
+      
       debugPrintLine("GAPROLE_CONNECTED");
     }
     break;
@@ -655,6 +695,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     {      
       debugPrintLine("GAPROLE_WAITING"); 
       if(isAdvertisingPeriodically == FALSE) {
+        P0_7 = 1; // Turn off blue led to indicate connection
         // Restart periodic advertisement after disconnection
         osal_stop_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD);
         osal_stop_timerEx(biscuit_TaskID, SBP_STOP_ADV_PERIOD);
@@ -768,7 +809,7 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 */
 static void performPeriodicTask( void )
 {
-
+  periodicTask();
 }
 
 /*********************************************************************
@@ -787,30 +828,39 @@ static void meshServiceChangeCB( uint8 paramID )
   
   if (paramID == MESSAGE_READY)
   {
+    
     MESH_GetParameter(RX_MESSAGE_CHAR, &len, data);
     uint8 length = data[0];
     uint8 type = data[1];
     uint16 dest = (data[3] << 8) | data[2];
     uint8* message = &data[4];
-    
+    debugPrintRaw(&message[1]);
     switch(type)
     {
     case BROADCAST:
       {
+        debugPrintLine("BR");
         message = &data[2];
         broadcastMessage(message, length);
+        break;
       }
     case GROUP_BROADCAST:
       {
+        debugPrintLine("GR");
         broadcastGroupMessage(dest, message, length);
+        break;
       }
     case STATELESS_MESSAGE:
       {
+        debugPrintLine("STL");
         sendStatelessMessage(dest, message, length);
+        break;
       }
     case STATEFUL_MESSAGE:
       {
+        debugPrintLine("STF");
         sendStatefulMessage(dest, message, length);
+        break;
       }
     }		
   }
@@ -904,30 +954,46 @@ static void dataHandler( uint8 port, uint8 events )
 
 static void advertiseCallback(uint8* data, uint8 length)
 {
-  static uint8 advert[31] =
-  {
-    0x02,   // length of this data
-    GAP_ADTYPE_FLAGS,
-    DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
-    27
-  };
+  if(queueIndex == QUEUE_SIZE) {
+      // disregard, queue is full
+      return;
+  }
   
+  advertisingQueue[queueIndex][0] = 0x02;
+  advertisingQueue[queueIndex][1] = GAP_ADTYPE_FLAGS;
+  advertisingQueue[queueIndex][2] = DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED;
+  advertisingQueue[queueIndex][3] = 27;
+    
+  // If is already forwarding
+  if(queueIndex > 0 || isForwarding == TRUE) {
+    // Add message to queue
+    osal_memcpy(&advertisingQueue[queueIndex][4], data, length);
+    // save the length of the message in the last byte of the array
+    advertisingQueue[queueIndex][31] = length;
+    queueIndex++;
+    
+    isProcessingQueue = TRUE;
+    return;
+  }
+  
+  // If there is no mesg in queue advertise directly
   isForwarding = TRUE;
   isObserving = 0;
   GAPObserverRole_StopDiscovery();
 
-  osal_memcpy(&advert[4], data, length);
+  osal_memcpy(&advertisingQueue[queueIndex][4], data, length);
   
   //debugPrintRawArray(advert, length+4);
    
-  GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length+4, advert);
+  GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length+4, advertisingQueue[queueIndex]);
   
   //Start advertising
   uint8 dummy = TRUE;
   GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy );
   
   // Start forwarding done event timer
-  osal_start_timerEx(biscuit_TaskID, SBP_FORWARDING_DONE_EVENT, FORWARDING_INTERVAL);
+  osal_start_timerEx(biscuit_TaskID, SBP_FORWARDING_DONE_EVENT, 
+                     isAdvertisingPeriodically == TRUE? FORWARDING_INTERVAL : FORWARDING_IN_CONNECTION_INTERVAL);
   
   // Start delayed observing
   osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 60);
