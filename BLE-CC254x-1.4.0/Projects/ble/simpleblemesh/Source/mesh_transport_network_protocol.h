@@ -57,6 +57,7 @@ typedef struct
     uint8 length;
     uint32 time;
     uint8* message;
+    uint8 resentCount;
 } PendingACK;
 void initializeMeshConnectionProtocol(uint16 networkIdentifier, 
 	uint16 deviceIdentifier, 

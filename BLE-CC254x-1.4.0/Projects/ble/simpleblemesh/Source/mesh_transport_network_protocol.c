@@ -3,9 +3,9 @@
 #define REMOVE_PROCESSED_MESSAGE_AFTER 3000
 #define PENDING_ACK_MAX 5
 #define PENDING_ACK_RESEND_TIMEOUT 5000
+#define RESEND_ACK_TIMES 1
 #define GROUP_MEMBERSHIP_MAX 40
 #define HEADER_SIZE sizeof(MessageHeader)
-
 #include "print_uart.h"
 
 /* Private varialbles */
@@ -279,12 +279,18 @@ static void resendNonACKedMessages()
     {
         if(pendingACKS[i].destination != 0 && pendingACKS[i].time < timestamp) 
         {
+          if(pendingACKS[i].resentCount == RESEND_ACK_TIMES) {
+            // Resent enough times, remove from pending ACKs
+            pendingACKS[i].destination = 0;
+          } else {
             // Resend unACK'ed messages
             sendStatefulMessageHelper(pendingACKS[i].destination, 
                     data, pendingACKS[i].message, pendingACKS[i].length);
             pendingACKS[i].time = getSystemTimestamp();
             // Set the sequence id to that of the new message
             pendingACKS[i].sequenceId = currentSequenceId - 1;
+            pendingACKS[i].resentCount++;
+          }
         }
     }
 }
@@ -348,6 +354,7 @@ static void insertPendingACK(uint8* message)
     pendingACKS[i].time = getSystemTimestamp();
     pendingACKS[i].length = messageHeader->length;
     pendingACKS[i].message = pendingACKMessages[i];
+    pendingACKS[i].resentCount = 0;
     // TODO : Replace by memcpy
     for(uint8 u = 0; u < messageHeader->length; u++) 
     {
