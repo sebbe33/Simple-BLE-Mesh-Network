@@ -3,7 +3,7 @@
 #define REMOVE_PROCESSED_MESSAGE_AFTER 3000
 #define PENDING_ACK_MAX 5
 #define PENDING_ACK_RESEND_TIMEOUT 5000
-#define RESEND_ACK_TIMES 1
+#define RESEND_ACK_TIMES 3
 #define GROUP_MEMBERSHIP_MAX 40
 #define HEADER_SIZE sizeof(MessageHeader)
 #include "print_uart.h"
