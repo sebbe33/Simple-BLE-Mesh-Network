@@ -832,9 +832,8 @@ static void meshServiceChangeCB( uint8 paramID )
     MESH_GetParameter(RX_MESSAGE_CHAR, &len, data);
     uint8 length = data[0];
     uint8 type = data[1];
-    uint16 dest = (data[3] << 8) | data[2];
+    uint16 dest = *((uint16*) &data[2]);
     uint8* message = &data[4];
-    debugPrintRaw(&message[1]);
     switch(type)
     {
     case BROADCAST:
