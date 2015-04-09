@@ -35,7 +35,9 @@ public class MeshMessageManagerImpl implements MeshMessageManager {
         ByteBuffer b = ByteBuffer.allocate(length+4);
         b.put(length);
         b.put(type.code);
-        b.putShort(destination);
+        //Due to Little endian structure on BLE Mini
+        b.put((byte)(destination & 0xFF));
+        b.put((byte)(destination >> 8));
 
         b.put(targetApplication.getId());
         b.put(message);
