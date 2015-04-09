@@ -225,7 +225,7 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent );
 static void advertiseCallback(uint8* data, uint8 length);
 static void messageCallback(uint8* data, uint8 length);
 static void dataHandler( uint8 port, uint8 events );
-
+static void processClientMessage(uint8* data, uint8 length);
 /*********************************************************************
 * PROFILE CALLBACKS
 */
@@ -831,37 +831,7 @@ static void meshServiceChangeCB( uint8 paramID )
     
     MESH_GetParameter(RX_MESSAGE_CHAR, &len, data);
     uint8 length = data[0];
-    uint8 type = data[1];
-    uint16 dest = *((uint16*) &data[2]);
-    uint8* message = &data[4];
-    switch(type)
-    {
-    case BROADCAST:
-      {
-        debugPrintLine("BR");
-        message = &data[2];
-        broadcastMessage(message, length);
-        break;
-      }
-    case GROUP_BROADCAST:
-      {
-        debugPrintLine("GR");
-        broadcastGroupMessage(dest, message, length);
-        break;
-      }
-    case STATELESS_MESSAGE:
-      {
-        debugPrintLine("STL");
-        sendStatelessMessage(dest, message, length);
-        break;
-      }
-    case STATEFUL_MESSAGE:
-      {
-        debugPrintLine("STF");
-        sendStatefulMessage(dest, message, length);
-        break;
-      }
-    }		
+    processClientMessage(data, length); 
   }
   else if (paramID == MESH_RX_NOTI_ENABLED)
   {
@@ -950,6 +920,37 @@ static void dataHandler( uint8 port, uint8 events )
 
 /*********************************************************************
 *********************************************************************/
+
+static void processClientMessage(uint8* data, uint8 length) 
+{
+    uint8 type = data[1];
+    uint16 dest = *((uint16*) &data[2]);
+    uint8* message = &data[4];
+    switch(type)
+    {
+    case BROADCAST:
+      {
+        message = &data[2];
+        broadcastMessage(message, length);
+        break;
+      }
+    case GROUP_BROADCAST:
+      {
+        broadcastGroupMessage(dest, message, length);
+        break;
+      }
+    case STATELESS_MESSAGE:
+      {
+        sendStatelessMessage(dest, message, length);
+        break;
+      }
+    case STATEFUL_MESSAGE:
+      {
+        sendStatefulMessage(dest, message, length);
+        break;
+      }
+    }		
+}
 
 static void advertiseCallback(uint8* data, uint8 length)
 {
