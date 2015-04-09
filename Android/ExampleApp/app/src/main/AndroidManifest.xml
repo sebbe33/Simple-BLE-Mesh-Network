@@ -22,7 +22,7 @@
         </activity>
 
         <service
-            android:name="simpleblemeshnetwork.exampleapp.network.MeshBluetoothService"
+            android:name=".network.connection.MeshBluetoothService"
             android:enabled="true" />
 
     </application>

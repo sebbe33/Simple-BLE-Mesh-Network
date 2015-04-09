@@ -1,4 +1,4 @@
-package simpleblemeshnetwork.exampleapp.network;
+package simpleblemeshnetwork.exampleapp.network.connection;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -14,11 +14,15 @@ import android.util.Log;
 import java.util.ArrayList;
 import java.util.List;
 
+import simpleblemeshnetwork.exampleapp.network.NetworkIdentifier;
+import simpleblemeshnetwork.exampleapp.network.NetworkIdentifierImpl;
+import simpleblemeshnetwork.exampleapp.network.Pauseable;
+
 /**
  * @author Sebastian Blomberg
  * @author Markus Andersson
  */
-public class ConnectionManagerImpl implements ConnectionManager {
+public class ConnectionManagerImpl implements ConnectionManager, Pauseable {
     public static final byte MESH_IDENTIFIER = (byte) 0xBC;
 
     private final BluetoothAdapter bluetoothAdapter;
@@ -39,7 +43,7 @@ public class ConnectionManagerImpl implements ConnectionManager {
 
     @Override
     public void searchForAvailableNetworks(AvailableNetworkCallback callback) {
-        searchForAvailableNetworks(callback, ConnectionManager.DEFAULT_SEARCH_PERIOD);
+        searchForAvailableNetworks(callback, DEFAULT_SEARCH_PERIOD);
     }
 
     @Override

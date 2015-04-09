@@ -1,11 +1,11 @@
-package simpleblemeshnetwork.exampleapp.network;
+package simpleblemeshnetwork.exampleapp.network.connection;
 
-import java.util.List;
+import simpleblemeshnetwork.exampleapp.network.NetworkIdentifier;
 
 /**
  * @author Sebastian Blomberg
  */
-public interface ConnectionManager extends Pauseable{
+public interface ConnectionManager{
     public static int DEFAULT_SEARCH_PERIOD = 7000;
 
     /**

@@ -1,4 +1,4 @@
-package simpleblemeshnetwork.exampleapp.network;
+package simpleblemeshnetwork.exampleapp.network.application;
 
 /**
  * @author Sebastian Blomberg

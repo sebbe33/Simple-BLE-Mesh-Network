@@ -1,4 +1,7 @@
-package simpleblemeshnetwork.exampleapp.network;
+package simpleblemeshnetwork.exampleapp.network.connection;
+
+import simpleblemeshnetwork.exampleapp.network.NetworkIdentifier;
+
 /**
  * @author Sebastian Blomberg
  */

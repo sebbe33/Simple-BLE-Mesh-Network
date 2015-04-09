@@ -19,18 +19,17 @@ import android.widget.Spinner;
 
 import java.util.List;
 
-import simpleblemeshnetwork.exampleapp.network.AvailableNetworkCallback;
-import simpleblemeshnetwork.exampleapp.network.Connection;
-import simpleblemeshnetwork.exampleapp.network.ConnectionCallback;
-import simpleblemeshnetwork.exampleapp.network.ConnectionManager;
-import simpleblemeshnetwork.exampleapp.network.ConnectionManagerImpl;
-import simpleblemeshnetwork.exampleapp.network.MeshMessageManager;
-import simpleblemeshnetwork.exampleapp.network.MeshMessageManagerImpl;
-import simpleblemeshnetwork.exampleapp.network.MeshNodeApplication;
-import simpleblemeshnetwork.exampleapp.network.MeshNodeApplicationImpl;
-import simpleblemeshnetwork.exampleapp.network.MessageType;
+import simpleblemeshnetwork.exampleapp.network.connection.AvailableNetworkCallback;
+import simpleblemeshnetwork.exampleapp.network.connection.Connection;
+import simpleblemeshnetwork.exampleapp.network.connection.ConnectionCallback;
+import simpleblemeshnetwork.exampleapp.network.connection.ConnectionManager;
+import simpleblemeshnetwork.exampleapp.network.connection.ConnectionManagerImpl;
+import simpleblemeshnetwork.exampleapp.network.application.MeshMessageManager;
+import simpleblemeshnetwork.exampleapp.network.application.MeshMessageManagerImpl;
+import simpleblemeshnetwork.exampleapp.network.application.MeshNodeApplication;
+import simpleblemeshnetwork.exampleapp.network.application.MeshNodeApplicationImpl;
+import simpleblemeshnetwork.exampleapp.network.application.MessageType;
 import simpleblemeshnetwork.exampleapp.network.NetworkIdentifier;
-import simpleblemeshnetwork.exampleapp.network.NetworkIdentifierImpl;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -41,7 +40,7 @@ public class MainActivity extends ActionBarActivity {
     private EditText destTextField;
     private Button sendButton, disconnectButton;
 
-    private ConnectionManager conMan;
+    private ConnectionManagerImpl conMan;
     private AlertDialog alert;
     private Button scanAgainButton;
     private Connection activeConnection;

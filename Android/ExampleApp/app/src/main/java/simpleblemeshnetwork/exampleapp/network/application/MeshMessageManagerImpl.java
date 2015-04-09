@@ -1,8 +1,12 @@
-package simpleblemeshnetwork.exampleapp.network;
+package simpleblemeshnetwork.exampleapp.network.application;
 
 import android.bluetooth.BluetoothGattCharacteristic;
 
 import java.nio.ByteBuffer;
+
+import simpleblemeshnetwork.exampleapp.network.MeshGattAttributes;
+import simpleblemeshnetwork.exampleapp.network.connection.Connection;
+import simpleblemeshnetwork.exampleapp.network.connection.MeshBluetoothService;
 
 /**
  * @author Sebastian Blomberg
