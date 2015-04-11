@@ -2,13 +2,15 @@
 #define RELAY_SWITCH_APPLICATION
 
 #include "comdef.h"
+#include "applications.h"
 
 #define RELAY_SWITCH_APPLICATION_CODE 1
 #define RELAY_SWITCH_STATUS_CHANGE 0x01
 #define RELAY_SWITCH_STATUS_GET_REQUEST 0x02
 #define RELAY_SWITCH_STATUS_GET_RESPONSE 0x3
 
-void initializeRelaySwitchApp(applicationClientResponseFunction clientCallback);
-void processIcomingMessageRelaySwitch(uint8* data, uint8 length);
+void initializeRelaySwitchApp(applicationClientResponseFunction ccb,
+                              applicationSendMessageFunction smcb);
+void processIcomingMessageRelaySwitch(uint16 destination, uint8* data, uint8 length);
 
 #endif

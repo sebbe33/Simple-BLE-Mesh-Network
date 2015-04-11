@@ -54,6 +54,7 @@ SOFTWARE.
 
 #include "print_uart.h"
 #include "mesh_transport_network_protocol.h"
+#include "applications.h"
 #include "relay_switch_application.h"
 /*********************************************************************
 * MACROS
@@ -405,7 +406,7 @@ void Biscuit_Init( uint8 task_id )
   HCI_EXT_SetTxPowerCmd( HCI_EXT_TX_POWER_0_DBM );
   
   // Initialze applications
-  initializeRelaySwitchApp(applicationClientResponseCallback);
+  initializeRelaySwitchApp(applicationClientResponseCallback, &sendStatelessMessage);
   applications[0].code = RELAY_SWITCH_APPLICATION_CODE;
   applications[0].fun = &processIcomingMessageRelaySwitch;
   
@@ -1001,7 +1002,7 @@ static void messageCallback(uint16 source, uint8* data, uint8 length)
 {
   for(uint8 i = 0; i < sizeof(applications); i++) {
     if(applications[i].code == data[0]) {
-      applications[i].fun(&data[1], length - 1);
+      applications[i].fun(source, &data[1], length - 1);
       break;
     }
   }

@@ -5,17 +5,21 @@
 #define RELAY_SWITCH_PIN 0x02
 uint8 status = 0;
 applicationClientResponseFunction clientCallback;
+applicationSendMessageFunction sendMessageCallback;
 
-void initializeRelaySwitchApp(applicationClientResponseFunction cb) 
+void initializeRelaySwitchApp(applicationClientResponseFunction ccb,
+                              applicationSendMessageFunction smcb) 
 {
-  clientCallback = cb;
+  clientCallback = ccb;
+  sendMessageCallback = smcb;
+  
   // Set up the pin
   P0SEL &= ~RELAY_SWITCH_PIN; // Configure PIN P0_1 as GPIO
   P0DIR |= RELAY_SWITCH_PIN; // Configure PIN P0_1 as output
   P0_1 = status;
 }
 
-void processIcomingMessageRelaySwitch(uint8* data, uint8 length) 
+void processIcomingMessageRelaySwitch(uint16 destination, uint8* data, uint8 length)
 {
   switch(data[0]) {
     case RELAY_SWITCH_STATUS_CHANGE:
@@ -23,7 +27,8 @@ void processIcomingMessageRelaySwitch(uint8* data, uint8 length)
       P0_1 = status;
       break;
     case RELAY_SWITCH_STATUS_GET_REQUEST:
-      // TODO send message
+      uint8 responsedata[2] = {RELAY_SWITCH_STATUS_GET_RESPONSE, status};
+      sendMessageCallback(destination, responsedata, 2);
       break;
     case RELAY_SWITCH_STATUS_GET_RESPONSE:
       clientCallback(data, length);
