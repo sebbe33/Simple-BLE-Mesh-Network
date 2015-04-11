@@ -64,6 +64,8 @@ SOFTWARE.
 */
 #define APPLICATIONS_LENGTH     1
 
+#define IS_SERVER 
+
 #define MESH_IDENTIFIER         0xBC
 #define NODE_NAME_MAX_SIZE      20
 #define NETWORK_NAME_MAX_SIZE   20
@@ -116,7 +118,7 @@ SOFTWARE.
 // Length of bd addr as a string
 #define B_ADDR_STR_LEN                        15        
 
-#define MAX_RX_LEN                            128
+#define MAX_RX_LEN                            30
 #define SBP_RX_TIME_OUT                       5
 
 #define DEFAULT_SCAN_DURATION                 1000
@@ -163,9 +165,6 @@ SOFTWARE.
 static uint8 biscuit_TaskID;   // Task ID for internal task/event processing
 uint8 flag = 0;
 static gaprole_States_t gapProfileState = GAPROLE_INIT;
-static uint8 RXBuf[MAX_RX_LEN];
-static uint8 rxLen = 0;
-static uint8 rxHead = 0, rxTail = 0;
 static uint8 isObserving = FALSE;
 static uint8 isAdvertisingPeriodically = TRUE;
 static Application applications[APPLICATIONS_LENGTH];
@@ -374,12 +373,6 @@ void Biscuit_Init( uint8 task_id )
   // Register callback with MESHService
   VOID MESH_RegisterAppCBs( &biscuit_MESHServiceCBs );
   
-  // Enable clock divide on halt
-  // This reduces active current while radio is active and CC254x MCU
-  // is halted
-  //  HCI_EXT_ClkDivOnHaltCmd( HCI_EXT_ENABLE_CLK_DIVIDE_ON_HALT );
-  
-  
   P0SEL = 0; // Configure Port 0 as GPIO
   P1SEL = 0; // Configure Port 1 as GPIO
   P2SEL = 0; // Configure Port 2 as GPIO
@@ -475,41 +468,12 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     //Start observing
     osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 25);
     
+#ifndef IS_SERVER
     // Start periodic advertisement
     osal_start_timerEx( biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_EAGER);
+#endif
     
     return ( events ^ SBP_START_DEVICE_EVT );
-  }
-  
-  if ( events & SBP_RX_TIME_OUT_EVT )
-  {
-    uint8 data[20];
-    uint8 send;
-    while(rxLen != 0)
-    {
-      if(rxLen <= 20)
-      {
-        send = rxLen;
-        rxLen = 0;
-      }
-      else
-      { 
-        send = 20;      
-        rxLen -= 20;
-      }
-      for(uint8 i=0; i<send; i++)
-      {
-        data[i] = RXBuf[rxTail];
-        rxTail++;
-        if(rxTail == MAX_RX_LEN)
-        {
-          rxTail = 0;
-        }
-      }
-      MESH_SetParameter(TX_MESSAGE_CHAR, send, data);
-    }
-    
-    return (events ^ SBP_RX_TIME_OUT_EVT);
   }
   
   if ( events & SBP_PERIODIC_EVT )
@@ -667,7 +631,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     
   case GAPROLE_ADVERTISING:
     {
-      debugPrintLine("GAPROLE_ADVERTISING");
+      //debugPrintLine("GAPROLE_ADVERTISING");
     }
     break;
     
@@ -693,7 +657,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     break;      
   case GAPROLE_WAITING:
     {      
-      debugPrintLine("GAPROLE_WAITING"); 
+      //debugPrintLine("GAPROLE_WAITING"); 
       if(isAdvertisingPeriodically == FALSE) {
         P0_7 = 1; // Turn off blue led to indicate connection
         // Restart periodic advertisement after disconnection
@@ -871,6 +835,9 @@ static void meshServiceChangeCB( uint8 paramID )
   }
 }
 
+static uint8 rxBuffer[30];
+static uint8 rxBufferCurrentIndex = 0;
+static uint8 bytesToReceiveOnRx = 0;
 /*********************************************************************
 * @fn      dataHandler
 *
@@ -886,36 +853,66 @@ static void dataHandler( uint8 port, uint8 events )
 {  
   if((events & HAL_UART_RX_TIMEOUT) == HAL_UART_RX_TIMEOUT)
   {
-    osal_stop_timerEx( biscuit_TaskID, SBP_RX_TIME_OUT_EVT);
-    
     uint8 len = NPI_RxBufLen();
-    uint8 buf[128];
+    if(len > 30) {
+      len = 30;
+    }
+    uint8 buf[30];
     NPI_ReadTransport( buf, len );
+    uint8 i = 0;
     
-    uint8 copy;   
-    if(len > (MAX_RX_LEN-rxLen))
-    {    
-      copy = MAX_RX_LEN - rxLen;
-      rxLen = MAX_RX_LEN;
-    }
-    else
-    {
-      rxLen += len;
-      copy = len;
-    }
-    for(uint8 i=0; i<copy; i++)
-    {
-      RXBuf[rxHead] = buf[i];
-      rxHead++;
-      if(rxHead == MAX_RX_LEN)
-      {
-        rxHead = 0;
+    // if new message
+    if(bytesToReceiveOnRx == 0) {
+      // disregard nonsence data and loop to the indicator
+      while(i < len && buf[i] != 0xE6) {
+          i++;
       }
+
+      if(i == len) {
+        // Invalid message
+        return;
+      } else if (buf[i] == 0xE6) {
+        // Indicator has been received. Check length byte:
+        if(i+2 < len) {
+          // Length byte and first message byte received
+          bytesToReceiveOnRx = buf[i+1];
+          // Set i to point at first content byte
+          i += 2; 
+        } else if(i+1 < len) {
+          // Only length byte received
+          bytesToReceiveOnRx = buf[i+1];
+          return;
+        } else {
+          // no length byte received. Indicate that it shall be received next time
+          bytesToReceiveOnRx = 0xFF;
+          return;
+        }
+      } 
+    } else if(bytesToReceiveOnRx == 0xFF) {
+        // about to receive the length of the message
+        bytesToReceiveOnRx = buf[0];
+        // set i to point at the first content byte
+        i++;
+    }
+
+    if(rxBufferCurrentIndex + (len - i) < bytesToReceiveOnRx) {
+      // if a partial message has been received -> copy local buffer to RXBuffer
+      memcpy(&rxBuffer[rxBufferCurrentIndex], &buf[i], len - i);
+      rxBufferCurrentIndex += len - i;
+    } else if (0 < rxBufferCurrentIndex) {
+      // if the rest of the partial message has been received -> copy and send it
+      memcpy(&rxBuffer[rxBufferCurrentIndex], &buf[i], len - i);
+      processClientMessage(rxBuffer, rxBuffer[0]);
+      rxBufferCurrentIndex = 0;
+      bytesToReceiveOnRx = 0;
+    } else {
+      // If the whole messaged could be processed directly
+      processClientMessage(&buf[i], buf[i]);
+      rxBufferCurrentIndex = 0;
+      bytesToReceiveOnRx = 0;
     }
     
-    osal_start_timerEx( biscuit_TaskID, SBP_RX_TIME_OUT_EVT, SBP_RX_TIME_OUT);
   }
-  return;
 }
 
 /*********************************************************************
@@ -941,6 +938,7 @@ static void processClientMessage(uint8* data, uint8 length)
       }
     case STATELESS_MESSAGE:
       {
+        debugPrintLine("ST");
         sendStatelessMessage(dest, message, length);
         break;
       }
@@ -982,11 +980,8 @@ static void advertiseCallback(uint8* data, uint8 length)
   GAPObserverRole_StopDiscovery();
 
   osal_memcpy(&advertisingQueue[queueIndex][4], data, length);
-  
-  //debugPrintRawArray(advert, length+4);
    
   GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length+4, advertisingQueue[queueIndex]);
-  
   //Start advertising
   uint8 dummy = TRUE;
   GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy );
