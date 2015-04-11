@@ -8,7 +8,7 @@
 #define RELAY_SWITCH_STATUS_GET_REQUEST 0x02
 #define RELAY_SWITCH_STATUS_GET_RESPONSE 0x3
 
-void initializeRelaySwitchApp();
+void initializeRelaySwitchApp(applicationClientResponseFunction clientCallback);
 void processIcomingMessageRelaySwitch(uint8* data, uint8 length);
 
 #endif

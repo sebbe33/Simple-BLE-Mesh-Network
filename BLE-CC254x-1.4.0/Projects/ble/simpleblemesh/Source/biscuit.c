@@ -225,6 +225,8 @@ static void advertiseCallback(uint8* data, uint8 length);
 static void messageCallback(uint16 source, uint8* data, uint8 length);
 static void dataHandler( uint8 port, uint8 events );
 static void processClientMessage(uint8* data, uint8 length);
+static void applicationClientResponseCallback(uint8* data, uint8 length);
+
 /*********************************************************************
 * PROFILE CALLBACKS
 */
@@ -403,7 +405,7 @@ void Biscuit_Init( uint8 task_id )
   HCI_EXT_SetTxPowerCmd( HCI_EXT_TX_POWER_0_DBM );
   
   // Initialze applications
-  initializeRelaySwitchApp();
+  initializeRelaySwitchApp(applicationClientResponseCallback);
   applications[0].code = RELAY_SWITCH_APPLICATION_CODE;
   applications[0].fun = &processIcomingMessageRelaySwitch;
   
@@ -994,6 +996,7 @@ static void advertiseCallback(uint8* data, uint8 length)
   osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 60);
   debugPrintLine("Forw");
 }
+
 static void messageCallback(uint16 source, uint8* data, uint8 length)
 {
   for(uint8 i = 0; i < sizeof(applications); i++) {
@@ -1003,4 +1006,13 @@ static void messageCallback(uint16 source, uint8* data, uint8 length)
     }
   }
   debugPrintLine("Got message");
+}
+
+/**
+  * An adapter function for applications to write to the GATT server.
+  * Calls the appropriate characteristic with the data delivered from the app.
+  */
+static void applicationClientResponseCallback(uint8* data, uint8 length) 
+{
+    MESH_SetParameter(TX_MESSAGE_CHAR,length, data);
 }

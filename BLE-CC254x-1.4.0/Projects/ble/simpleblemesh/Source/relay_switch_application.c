@@ -4,8 +4,12 @@
 
 #define RELAY_SWITCH_PIN 0x02
 uint8 status = 0;
-void initializeRelaySwitchApp() 
+applicationClientResponseFunction clientCallback;
+
+void initializeRelaySwitchApp(applicationClientResponseFunction cb) 
 {
+  clientCallback = cb;
+  // Set up the pin
   P0SEL &= ~RELAY_SWITCH_PIN; // Configure PIN P0_1 as GPIO
   P0DIR |= RELAY_SWITCH_PIN; // Configure PIN P0_1 as output
   P0_1 = status;
@@ -19,9 +23,10 @@ void processIcomingMessageRelaySwitch(uint8* data, uint8 length)
       P0_1 = status;
       break;
     case RELAY_SWITCH_STATUS_GET_REQUEST:
+      // TODO send message
       break;
     case RELAY_SWITCH_STATUS_GET_RESPONSE:
-      
+      clientCallback(data, length);
     break;
   }
 }
