@@ -65,9 +65,10 @@ SOFTWARE.
 */
 #define APPLICATIONS_LENGTH     1
 
-#define IS_SERVER 
+//#define IS_SERVER 
 
 #define MESH_IDENTIFIER         0xBC
+#define MESH_MESSAGE_FLAG_OFFSET        4
 #define NODE_NAME_MAX_SIZE      20
 #define NETWORK_NAME_MAX_SIZE   20
   
@@ -709,40 +710,9 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
     
   case GAP_DEVICE_INFO_EVENT:
     {
-      //count++;
-      //if(pEvent->deviceInfo.addr[0] == 0x95){
-      
-      //if( flag <= 1){
-      //debugPrintRaw((uint8*) &count);
       uint8* data = pEvent->deviceInfo.pEvtData;
       uint8  dataLen = pEvent->deviceInfo.dataLen;
-      /*if(flag == 1) {
-        flag = 2;
-      }*/
-      processIncomingMessage(&data[9], dataLen-9);
-      
-      /*MessageHeader* h = (MessageHeader*) &data[9];
-      uint16 netId = h->networkIdentifier;
-      uint8 len = h->length;
-      uint8 type = h->type;
-      uint8 seq = h->sequenceID;
-      
-      debugPrintRaw16((uint16*)&netId);
-      debugPrintRaw((uint8*)&len);
-      debugPrintRaw((uint8*)&type);
-      debugPrintRaw16((uint16*)&h->source);
-      debugPrintRaw((uint8*)&seq);
-      */
-      //}
-      
-      
-      //debugPrintRawArray(&data[9], 6);
-      //uint24 o = 0x010203;
-      //debugPrintRaw32(&o);
-      
-      //debugPrintLine("Device found");
-      //}
-      
+      processIncomingMessage(&data[MESH_MESSAGE_FLAG_OFFSET], dataLen-MESH_MESSAGE_FLAG_OFFSET);
     }
     break;
     
@@ -982,9 +952,9 @@ static void advertiseCallback(uint8* data, uint8 length)
   isObserving = 0;
   GAPObserverRole_StopDiscovery();
 
-  osal_memcpy(&advertisingQueue[queueIndex][4], data, length);
+  osal_memcpy(&advertisingQueue[queueIndex][MESH_MESSAGE_FLAG_OFFSET], data, length);
    
-  GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length+4, advertisingQueue[queueIndex]);
+  GAPRole_SetParameter( GAPROLE_ADVERT_DATA, length+MESH_MESSAGE_FLAG_OFFSET, advertisingQueue[queueIndex]);
   //Start advertising
   uint8 dummy = TRUE;
   GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy );
