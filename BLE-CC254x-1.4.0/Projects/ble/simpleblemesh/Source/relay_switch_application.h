@@ -7,7 +7,7 @@
 #define RELAY_SWITCH_APPLICATION_CODE 1
 #define RELAY_SWITCH_STATUS_CHANGE 0x01
 #define RELAY_SWITCH_STATUS_GET_REQUEST 0x02
-#define RELAY_SWITCH_STATUS_GET_RESPONSE 0x3
+#define RELAY_SWITCH_STATUS_GET_RESPONSE 0x03
 
 void initializeRelaySwitchApp(applicationClientResponseFunction ccb,
                               applicationSendMessageFunction smcb);

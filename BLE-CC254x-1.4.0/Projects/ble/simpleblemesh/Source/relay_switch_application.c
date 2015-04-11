@@ -27,8 +27,9 @@ void processIcomingMessageRelaySwitch(uint16 destination, uint8* data, uint8 len
       P0_1 = status;
       break;
     case RELAY_SWITCH_STATUS_GET_REQUEST:
-      uint8 responsedata[2] = {RELAY_SWITCH_STATUS_GET_RESPONSE, status};
-      sendMessageCallback(destination, responsedata, 2);
+      uint8 responsedata[3] = {RELAY_SWITCH_APPLICATION_CODE, 
+                                RELAY_SWITCH_STATUS_GET_RESPONSE, status};
+      sendMessageCallback(destination, responsedata, 3);
       break;
     case RELAY_SWITCH_STATUS_GET_RESPONSE:
       clientCallback(data, length);

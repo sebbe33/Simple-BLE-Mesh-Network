@@ -88,10 +88,10 @@ SOFTWARE.
 #define SBP_PERIODIC_EVT_PERIOD                   2500
 
 // What is the advertising interval when device is discoverable (units of 625us, 160=100ms)
-#define DEFAULT_ADVERTISING_INTERVAL 33
+#define DEFAULT_ADVERTISING_INTERVAL 70
 #define DEFAULT_ADVERTISING_IN_CONNECTION_INTERVAL 165
 
-#define FORWARDING_INTERVAL 100
+#define FORWARDING_INTERVAL 90
 #define FORWARDING_IN_CONNECTION_INTERVAL 300
 
 // General discoverable mode advertises indefinitely
@@ -123,7 +123,7 @@ SOFTWARE.
 #define MAX_RX_LEN                            30
 #define SBP_RX_TIME_OUT                       5
 
-#define DEFAULT_SCAN_DURATION                 1000
+#define DEFAULT_SCAN_DURATION                 100
 
 // Discovey mode (limited, general, all)
 #define DEFAULT_DISCOVERY_MODE                DEVDISC_MODE_ALL
@@ -165,7 +165,6 @@ SOFTWARE.
 * LOCAL VARIABLES
 */
 static uint8 biscuit_TaskID;   // Task ID for internal task/event processing
-uint8 flag = 0;
 static gaprole_States_t gapProfileState = GAPROLE_INIT;
 static uint8 isObserving = FALSE;
 static uint8 isAdvertisingPeriodically = TRUE;
@@ -352,6 +351,8 @@ void Biscuit_Init( uint8 task_id )
   {
     GAP_SetParamValue( TGAP_GEN_DISC_SCAN, DEFAULT_SCAN_DURATION );
     GAP_SetParamValue( TGAP_LIM_DISC_SCAN, DEFAULT_SCAN_DURATION );
+    GAP_SetParamValue( TGAP_GEN_DISC_SCAN_WIND, 30 );
+    GAP_SetParamValue( TGAP_GEN_DISC_SCAN_INT,  35);
   }
   
   // Setup the GAP Bond Manager
@@ -635,7 +636,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     
   case GAPROLE_ADVERTISING:
     {
-      //debugPrintLine("GAPROLE_ADVERTISING");
+      debugPrintLine("GAPROLE_ADVERTISING");
     }
     break;
     
@@ -645,7 +646,6 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
         P0_7 = 0; // Turn on blue led to indicate connection
         // If we're advertising periodically, turn it off while in connection
         isAdvertisingPeriodically = FALSE;
-        debugPrintLine("Turning off");
         osal_stop_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD);
         osal_stop_timerEx(biscuit_TaskID, SBP_STOP_ADV_PERIOD);
       }
@@ -661,7 +661,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     break;      
   case GAPROLE_WAITING:
     {      
-      //debugPrintLine("GAPROLE_WAITING"); 
+      debugPrintLine("GAPROLE_WAITING"); 
       if(isAdvertisingPeriodically == FALSE) {
         P0_7 = 1; // Turn off blue led to indicate connection
         // Restart periodic advertisement after disconnection
@@ -712,6 +712,7 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
     {
       uint8* data = pEvent->deviceInfo.pEvtData;
       uint8  dataLen = pEvent->deviceInfo.dataLen;
+      debugPrintRawArray(data, dataLen);
       processIncomingMessage(&data[MESH_MESSAGE_FLAG_OFFSET], dataLen-MESH_MESSAGE_FLAG_OFFSET);
     }
     break;
@@ -911,7 +912,6 @@ static void processClientMessage(uint8* data, uint8 length)
       }
     case STATELESS_MESSAGE:
       {
-        debugPrintLine("ST");
         sendStatelessMessage(dest, message, length);
         break;
       }
@@ -964,19 +964,20 @@ static void advertiseCallback(uint8* data, uint8 length)
                      isAdvertisingPeriodically == TRUE? FORWARDING_INTERVAL : FORWARDING_IN_CONNECTION_INTERVAL);
   
   // Start delayed observing
-  osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 60);
+  osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 15);
   debugPrintLine("Forw");
 }
 
 static void messageCallback(uint16 source, uint8* data, uint8 length)
 {
+  debugPrintLine("Got message");
   for(uint8 i = 0; i < sizeof(applications); i++) {
     if(applications[i].code == data[0]) {
       applications[i].fun(source, &data[1], length - 1);
       break;
     }
   }
-  debugPrintLine("Got message");
+  
 }
 
 /**
@@ -985,5 +986,10 @@ static void messageCallback(uint16 source, uint8* data, uint8 length)
   */
 static void applicationClientResponseCallback(uint8* data, uint8 length) 
 {
+#ifdef IS_SERVER
+    //HalUARTWrite(NPI_UART_PORT, data, length); 
+    debugPrintRawArray(data, length);
+#else 
     MESH_SetParameter(TX_MESSAGE_CHAR,length, data);
+#endif
 }
