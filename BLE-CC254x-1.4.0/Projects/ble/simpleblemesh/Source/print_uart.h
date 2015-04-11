@@ -10,4 +10,7 @@ void debugPrintRaw(uint8* data);
 
 void debugPrintRawArray(uint8* data, uint8 len);
 
+void debugPrintRaw16(uint16* data);
+
+void debugPrintRaw32(uint32* data);
 #endif
