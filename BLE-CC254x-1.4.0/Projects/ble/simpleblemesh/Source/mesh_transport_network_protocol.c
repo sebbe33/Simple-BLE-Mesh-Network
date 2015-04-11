@@ -81,22 +81,22 @@ void processIncomingMessage(uint8* message, uint8 length)
         // Forward message to the rest of the network
         advertise(message, length);
         // Forward to application
-		forwardMessageToApp(&message[6], length - 6);
+		forwardMessageToApp(header->source, &message[6], length - 6);
 	} 
 	else if (header->type == GROUP_BROADCAST && isMemberOfGroup(header->destination)) 
 	{
         advertise(message, length);
-		forwardMessageToApp(&message[HEADER_SIZE], length - HEADER_SIZE);
+		forwardMessageToApp(header->source, &message[HEADER_SIZE], length - HEADER_SIZE);
 	} 
 	else if(header->destination == id) 
 	{
 		switch (header->type) 
 		{
 			case STATELESS_MESSAGE:
-				forwardMessageToApp(&message[HEADER_SIZE], length - HEADER_SIZE);
+				forwardMessageToApp(header->source, &message[HEADER_SIZE], length - HEADER_SIZE);
 				break;
 	  		case STATEFUL_MESSAGE:
-                                forwardMessageToApp(&message[HEADER_SIZE], length - HEADER_SIZE);
+                                forwardMessageToApp(header->source, &message[HEADER_SIZE], length - HEADER_SIZE);
                                 // Send ACK
                                 uint8 sequenceIDToACK = header->sequenceID;
                                 constructDataMessage(newMessage, STATEFUL_MESSAGE_ACK, header->source, &sequenceIDToACK, 1);
@@ -131,7 +131,7 @@ void broadcastMessage(uint8* message, uint8 length)
     }
     
     advertise(data, length + 6);
-    forwardMessageToApp(message, length);
+    forwardMessageToApp(header->source, message, length);
 }
 
 void broadcastGroupMessage(uint16 groupDestination, uint8* message, uint8 length)
@@ -141,7 +141,7 @@ void broadcastGroupMessage(uint16 groupDestination, uint8* message, uint8 length
     constructDataMessage(data, GROUP_BROADCAST, groupDestination, message, length);
     advertise(data, length + HEADER_SIZE);
 	if(isMemberOfGroup(groupDestination)){
-		forwardMessageToApp(message, length);
+		forwardMessageToApp(id, message, length);
 	}
 }
 
@@ -149,7 +149,7 @@ void sendStatefulMessage(uint16 destination, uint8* message, uint8 length)
 {
     uint8 data[32];
     if(destination==id){
-		forwardMessageToApp(message, length);
+		forwardMessageToApp(id, message, length);
 		return;
 	}
 	sendStatefulMessageHelper(destination, data, message, length);
@@ -163,7 +163,7 @@ void sendStatelessMessage(uint16 destination, uint8* message, uint8 length)
 {
     uint8 data[32];
 	if(destination==id){
-		forwardMessageToApp(message, length);
+		forwardMessageToApp(id, message, length);
 		return;
 	}
     constructDataMessage(data, STATELESS_MESSAGE, destination, message, length);

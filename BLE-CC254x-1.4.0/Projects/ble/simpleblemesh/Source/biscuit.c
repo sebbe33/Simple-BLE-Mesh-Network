@@ -222,7 +222,7 @@ static void performPeriodicTask( void );
 static void meshServiceChangeCB( uint8 paramID );
 static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent );
 static void advertiseCallback(uint8* data, uint8 length);
-static void messageCallback(uint8* data, uint8 length);
+static void messageCallback(uint16 source, uint8* data, uint8 length);
 static void dataHandler( uint8 port, uint8 events );
 static void processClientMessage(uint8* data, uint8 length);
 /*********************************************************************
@@ -404,7 +404,7 @@ void Biscuit_Init( uint8 task_id )
   
   // Initialze applications
   initializeRelaySwitchApp();
-  applications[0].code = RELAY_SWITCH_CODE;
+  applications[0].code = RELAY_SWITCH_APPLICATION_CODE;
   applications[0].fun = &processIcomingMessageRelaySwitch;
   
   // Setup a delayed profile startup
@@ -994,7 +994,7 @@ static void advertiseCallback(uint8* data, uint8 length)
   osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 60);
   debugPrintLine("Forw");
 }
-static void messageCallback(uint8* data, uint8 length)
+static void messageCallback(uint16 source, uint8* data, uint8 length)
 {
   for(uint8 i = 0; i < sizeof(applications); i++) {
     if(applications[i].code == data[0]) {
