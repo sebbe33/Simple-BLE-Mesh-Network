@@ -1,13 +1,11 @@
 package simpleblemeshnetwork.exampleapp.network.application;
 
 import android.bluetooth.BluetoothGattCharacteristic;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.support.v4.content.LocalBroadcastManager;
-import android.util.Log;
 
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 import simpleblemeshnetwork.exampleapp.network.MeshGattAttributes;
 import simpleblemeshnetwork.exampleapp.network.connection.Connection;
@@ -15,18 +13,19 @@ import simpleblemeshnetwork.exampleapp.network.connection.MeshBluetoothService;
 import simpleblemeshnetwork.exampleapp.network.connection.MeshCharacteristicUpdatedCallback;
 
 /**
- * @author Sebastian Blomberg
+ * @author Sebastian Blomberg, Markus Andersson
  */
 public class MeshMessageManagerImpl implements MeshMessageManager {
-    private MeshBluetoothService btService;
+    private final MeshBluetoothService btService;
     private Connection connection;
-    MeshMessageCallback meshMessageCallback;
+    /** A hash map to map an application's ID to a set of callback objects for that app */
+    private final HashMap<MeshNodeApplication, Set<MeshMessageCallback>> callbacks = new HashMap<>();
 
 
     public MeshMessageManagerImpl(MeshBluetoothService btService, Connection connection) {
         this.btService = btService;
         this.connection = connection;
-
+        // Register a callback with the bluetooth service for the TX char
         this.btService.registerCharacteristicUpdateCallback(characteristicUpdatedCallback);
     }
 
@@ -119,27 +118,79 @@ public class MeshMessageManagerImpl implements MeshMessageManager {
     }
 
     @Override
-    public boolean registerCallback(MeshMessageCallback callback) {
-        if(callback != null){
-            meshMessageCallback = callback;
-            return true;
+    public void registerCallback(MeshMessageCallback callback, MeshNodeApplication targetApplication) {
+        if(callback == null || targetApplication == null) {
+            throw new IllegalArgumentException("Callback nor targetApplication may not be null");
         }
-        return false;
+
+        Set<MeshMessageCallback> callBackSet = callbacks.get(targetApplication.getId());
+
+        if(callBackSet == null) {
+            // Create a new list for the target application
+            callBackSet = new HashSet<>();
+        }
+
+        // Add to the set, guaranteeing only one instance of the same callback
+        callBackSet.add(callback);
+
     }
 
     @Override
-    public boolean unregisterCallback(MeshMessageCallback callback) {
-        return false;
+    public void deregisterCallback(MeshMessageCallback callback, MeshNodeApplication targetApplication) {
+        if(callback == null || targetApplication == null) {
+            throw new IllegalArgumentException("Callback nor targetApplication may not be null");
+        }
+
+        Set<MeshMessageCallback> callBackSet = callbacks.get(targetApplication.getId());
+        if(callBackSet != null) {
+            callBackSet.remove(callback);
+        }
     }
+
+    @Override
+    public void deregisterCallback(MeshMessageCallback callback) {
+        for(MeshNodeApplication app : callbacks.keySet()) {
+            deregisterCallback(callback, app);
+        }
+     }
 
     private MeshCharacteristicUpdatedCallback characteristicUpdatedCallback = new MeshCharacteristicUpdatedCallback() {
         @Override
         public void CharacteristicUpdated(byte [] data) {
+            // Conversion from little endian to big endian (which Java uses)
+            short source = (short) ((data[0] & 0xFF) | (data[1] << 8));
+            byte appId = data[2];
+            byte[] message = new byte[data.length - 3];
+            // Copy the pure message
+            System.arraycopy(data, 3, message, 0, data.length - 3);
 
-                Log.d("TXDATA:", "" + data[0] + data[1]);
-                //TODO: first byte : app
-                //second byte:
+            MeshNodeApplication app = getApplicationFromByte(appId);
+
+            if(app == null) {
+                // this app isn't int in the map
+                return;
+            }
+
+            Set<MeshMessageCallback> callBackSet = callbacks.get(app);
+            if(callBackSet == null) {
+                // No callback objects listed for this app
+                return;
+            }
+
+            for(MeshMessageCallback callback : callBackSet) {
+                callback.onMessageReceived(source, null, null);
+            }
+
         }
     };
 
+    private MeshNodeApplication getApplicationFromByte(byte id) {
+        for(MeshNodeApplication app : callbacks.keySet()) {
+            if(app.getId() == id) {
+                return app;
+            }
+        }
+
+        return null;
+    }
 }

@@ -1,9 +1,8 @@
 package simpleblemeshnetwork.exampleapp.network.application;
 
 /**
- * Created by Markus on 2015-04-13.
+ * @author Markus Andersson, Sebastian Blomber
  */
 public interface MeshMessageCallback {
-
-    public void onMessageRecieved(MeshNodeApplication app);
+    public void onMessageReceived(short source, MeshNodeApplication app, byte[] message);
 }
