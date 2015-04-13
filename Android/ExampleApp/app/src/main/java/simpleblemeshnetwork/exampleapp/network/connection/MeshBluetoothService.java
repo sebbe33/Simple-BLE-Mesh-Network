@@ -45,6 +45,8 @@ public class MeshBluetoothService extends Service {
     private BluetoothAdapter mBluetoothAdapter;
     private String mBluetoothDeviceAddress;
     private BluetoothGatt mBluetoothGatt;
+    private MeshCharacteristicUpdatedCallback meshCharacteristicUpdatedCallback;
+    private boolean initNotifications = false;
 
     public final static String ACTION_GATT_CONNECTED = "ACTION_GATT_CONNECTED";
     public final static String ACTION_GATT_DISCONNECTED = "ACTION_GATT_DISCONNECTED";
@@ -101,6 +103,9 @@ public class MeshBluetoothService extends Service {
         public void onCharacteristicChanged(BluetoothGatt gatt,
                                             BluetoothGattCharacteristic characteristic) {
             broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+            Log.d("MeshBluetoothService", "onCharacteristicChanged");
+
+
         }
     };
 
@@ -117,18 +122,12 @@ public class MeshBluetoothService extends Service {
 
     private void broadcastUpdate(final String action,
                                  final BluetoothGattCharacteristic characteristic) {
-        final Intent intent = new Intent(action);
-
-        // This is special handling for the Heart Rate Measurement profile. Data
-        // parsing is
-        // carried out as per profile specifications:
-        // http://developer.bluetooth.org/gatt/characteristics/Pages/CharacteristicViewer.aspx?u=org.bluetooth.characteristic.heart_rate_measurement.xml
-        if (MeshGattAttributes.UUID_MESH_RX.equals(characteristic.getUuid())) {
-            final byte[] rx = characteristic.getValue();
-            intent.putExtra(EXTRA_DATA, rx);
+        byte[] rx = {0};
+        if (MeshGattAttributes.UUID_MESH_TX.equals(characteristic.getUuid())) {
+            rx = characteristic.getValue();
         }
+        meshCharacteristicUpdatedCallback.CharacteristicUpdated(rx);
 
-        sendBroadcast(intent);
     }
 
     public class LocalBinder extends Binder {
@@ -177,6 +176,7 @@ public class MeshBluetoothService extends Service {
             Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
             return false;
         }
+
 
         return true;
     }
@@ -286,7 +286,6 @@ public class MeshBluetoothService extends Service {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;
         }
-
         mBluetoothGatt.writeCharacteristic(characteristic);
     }
 
@@ -304,13 +303,12 @@ public class MeshBluetoothService extends Service {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;
         }
+
         mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
 
-        if (MeshGattAttributes.UUID_MESH_RX.equals(characteristic.getUuid())) {
-            BluetoothGattDescriptor descriptor = characteristic
-                    .getDescriptor(MeshGattAttributes.CLIENT_CHARACTERISTIC_CONFIG);
-            descriptor
-                    .setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+        if (MeshGattAttributes.UUID_MESH_TX.equals(characteristic.getUuid())) {
+            BluetoothGattDescriptor descriptor = characteristic.getDescriptor(MeshGattAttributes.CLIENT_CHARACTERISTIC_CONFIG);
+            descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
             mBluetoothGatt.writeDescriptor(descriptor);
         }
     }
@@ -320,5 +318,22 @@ public class MeshBluetoothService extends Service {
             return null;
 
         return mBluetoothGatt.getService(MeshGattAttributes.UUID_MESH_SERVICE);
+    }
+
+    public void registerCharacteristicUpdateCallback (MeshCharacteristicUpdatedCallback callback){
+
+        if(initNotifications == false) {
+            BluetoothGattService service = mBluetoothGatt.getService(MeshGattAttributes.UUID_MESH_SERVICE);
+            BluetoothGattCharacteristic characteristic = service.getCharacteristic(MeshGattAttributes.UUID_MESH_TX);
+            mBluetoothGatt.setCharacteristicNotification(characteristic, true);
+
+            BluetoothGattDescriptor descriptor = characteristic.getDescriptor(MeshGattAttributes.CLIENT_CHARACTERISTIC_CONFIG);
+            descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+            mBluetoothGatt.writeDescriptor(descriptor);
+
+            initNotifications = true;
+        }
+
+        meshCharacteristicUpdatedCallback = callback;
     }
 }

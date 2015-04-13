@@ -25,5 +25,8 @@ public interface MeshMessageManager {
 
     public void sendStatefulMessage(short destination, MeshNodeApplication targetApplication,
                                      String message);
+    public boolean registerCallback(MeshMessageCallback callback);
+
+    public boolean unregisterCallback(MeshMessageCallback callback);
 }
 

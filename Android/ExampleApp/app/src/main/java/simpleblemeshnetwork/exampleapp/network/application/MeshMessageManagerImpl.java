@@ -1,12 +1,18 @@
 package simpleblemeshnetwork.exampleapp.network.application;
 
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.support.v4.content.LocalBroadcastManager;
+import android.util.Log;
 
 import java.nio.ByteBuffer;
 
 import simpleblemeshnetwork.exampleapp.network.MeshGattAttributes;
 import simpleblemeshnetwork.exampleapp.network.connection.Connection;
 import simpleblemeshnetwork.exampleapp.network.connection.MeshBluetoothService;
+import simpleblemeshnetwork.exampleapp.network.connection.MeshCharacteristicUpdatedCallback;
 
 /**
  * @author Sebastian Blomberg
@@ -14,11 +20,16 @@ import simpleblemeshnetwork.exampleapp.network.connection.MeshBluetoothService;
 public class MeshMessageManagerImpl implements MeshMessageManager {
     private MeshBluetoothService btService;
     private Connection connection;
+    MeshMessageCallback meshMessageCallback;
+
 
     public MeshMessageManagerImpl(MeshBluetoothService btService, Connection connection) {
         this.btService = btService;
         this.connection = connection;
+
+        this.btService.registerCharacteristicUpdateCallback(characteristicUpdatedCallback);
     }
+
 
     private void sendMessageHelper(MessageType type, short destination,
                                    MeshNodeApplication targetApplication, byte[] message) {
@@ -74,6 +85,7 @@ public class MeshMessageManagerImpl implements MeshMessageManager {
     @Override
     public void sendBroadcast(MeshNodeApplication targetApplication, String message) {
         sendBroadcast(targetApplication, message.getBytes());
+
     }
 
     @Override
@@ -105,4 +117,29 @@ public class MeshMessageManagerImpl implements MeshMessageManager {
     public void sendStatefulMessage(short destination, MeshNodeApplication targetApplication, String message) {
         sendStatefulMessage(destination, targetApplication, message.getBytes());
     }
+
+    @Override
+    public boolean registerCallback(MeshMessageCallback callback) {
+        if(callback != null){
+            meshMessageCallback = callback;
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean unregisterCallback(MeshMessageCallback callback) {
+        return false;
+    }
+
+    private MeshCharacteristicUpdatedCallback characteristicUpdatedCallback = new MeshCharacteristicUpdatedCallback() {
+        @Override
+        public void CharacteristicUpdated(byte [] data) {
+
+                Log.d("TXDATA:", "" + data[0] + data[1]);
+                //TODO: first byte : app
+                //second byte:
+        }
+    };
+
 }
