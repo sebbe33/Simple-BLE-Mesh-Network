@@ -1,5 +1,4 @@
 <?php
-require_once("MeshNodeApplicationOperationCode.php");
 
 interface MeshNodeApplication {
     /**
@@ -13,7 +12,7 @@ interface MeshNodeApplication {
      * @return String Applications's name
      */
     public function getName();
-    
+
     /**
      * Returns the available OP-Codes of the application
      * @return Array of MeshNodeApplicationOperationCode

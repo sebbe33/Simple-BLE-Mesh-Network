@@ -4,6 +4,7 @@ require_once 'RelaySwitchApplication.php';
 
 class MeshNodeApplications {
     const RELAY_SWITCH = RelaySwitchApplication::RELAY_SWITCH_CODE;
+
     
     private static $values;
     private static $hasBeenInitialized = false;

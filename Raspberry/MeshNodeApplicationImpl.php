@@ -1,7 +1,6 @@
 <?php
 
 require_once 'MeshNodeApplicationImpl.php';
-require_once 'MeshNodeApplicationOperationCodeImpl.php';
 
 class MeshNodeApplicationImpl implements MeshNodeApplication {
     private $id, $name, $opCodes;
@@ -10,6 +9,7 @@ class MeshNodeApplicationImpl implements MeshNodeApplication {
         $this->id = $id;
         $this->name = $name;
         $this->opCodes = $opCodes;
+
     }
     
     public function getId() {
@@ -19,7 +19,7 @@ class MeshNodeApplicationImpl implements MeshNodeApplication {
     public function getName() {
         return $this->name;
     }
-    
+
     public function getOperationCode($code) {
         if(array_key_exists($code, $this->opCodes)) {
             return $this->opCodes[$code];
