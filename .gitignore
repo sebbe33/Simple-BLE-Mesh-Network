@@ -33,6 +33,7 @@
 *.dep
 *.sfr
 
+.DS_Store
 
 # Ignore whole TI folder .. but the project folder
 BLE-CC254x-1.4.0/*
