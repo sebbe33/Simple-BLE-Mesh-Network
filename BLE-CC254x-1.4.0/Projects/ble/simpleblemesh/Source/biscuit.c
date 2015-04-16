@@ -1002,11 +1002,7 @@ static void messageCallback(uint16 source, uint8* data, uint8 length)
 static void applicationClientResponseCallback(uint8* data, uint8 length) 
 {
 #ifdef IS_SERVER
-  debugPrintLine("men");
   HalUARTWrite(NPI_UART_PORT, data, length); 
-  //debugPrintLine("men");
-  /*uint8 token2[2] = {15,19};
-  HalUARTWrite(NPI_UART_PORT, token2, 2);*/ 
   uint8 token[2] = "\r\n";
   HalUARTWrite(NPI_UART_PORT, token, 2); 
 #else
