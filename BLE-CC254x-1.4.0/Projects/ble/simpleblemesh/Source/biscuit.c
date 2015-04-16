@@ -66,6 +66,7 @@ SOFTWARE.
 #define APPLICATIONS_LENGTH     1
 
 //#define IS_SERVER 
+//#define DEBUG_PRINT
 
 #define MESH_IDENTIFIER         0xBC
 #define MESH_MESSAGE_FLAG_OFFSET        4
@@ -636,7 +637,9 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     
   case GAPROLE_ADVERTISING:
     {
+#ifdef DEBUG_PRINT
       debugPrintLine("GAPROLE_ADVERTISING");
+#endif
     }
     break;
     
@@ -649,19 +652,24 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
         osal_stop_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD);
         osal_stop_timerEx(biscuit_TaskID, SBP_STOP_ADV_PERIOD);
       }
-      
+#ifdef DEBUG_PRINT    
       debugPrintLine("GAPROLE_CONNECTED");
+#endif
     }
     break;
     
   case GAPROLE_CONNECTED_ADV:
     {
+#ifdef DEBUG_PRINT
       debugPrintLine("GAPROLE_CONNECTED_ADV");
+#endif
     }
     break;      
   case GAPROLE_WAITING:
     {      
+#ifdef DEBUG_PRINT
       debugPrintLine("GAPROLE_WAITING"); 
+#endif
       if(isAdvertisingPeriodically == FALSE) {
         P0_7 = 1; // Turn off blue led to indicate connection
         // Restart periodic advertisement after disconnection
@@ -675,13 +683,17 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
     
   case GAPROLE_WAITING_AFTER_TIMEOUT:
     {
+#ifdef DEBUG_PRINT
       debugPrintLine("GAPROLE_WAITING_AFTER_TIMEOUT");
+#endif
     }
     break;
     
   case GAPROLE_ERROR:
     {
+#ifdef DEBUG_PRINT
       debugPrintLine("GAPROLE ERROR");
+#endif
     }
     break;
   }
@@ -712,7 +724,6 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
     {
       uint8* data = pEvent->deviceInfo.pEvtData;
       uint8  dataLen = pEvent->deviceInfo.dataLen;
-      debugPrintRawArray(data, dataLen);
       processIncomingMessage(&data[MESH_MESSAGE_FLAG_OFFSET], dataLen-MESH_MESSAGE_FLAG_OFFSET);
     }
     break;
@@ -965,12 +976,16 @@ static void advertiseCallback(uint8* data, uint8 length)
   
   // Start delayed observing
   osal_start_timerEx(biscuit_TaskID, SBP_START_OBSERVING, 15);
+#ifdef DEBUG_PRINT
   debugPrintLine("Forw");
+#endif
 }
 
 static void messageCallback(uint16 source, uint8* data, uint8 length)
 {
+#ifdef DEBUG_PRINT
   debugPrintLine("Got message");
+#endif
   for(uint8 i = 0; i < sizeof(applications); i++) {
     if(applications[i].code == data[0]) {
       applications[i].fun(source, &data[1], length - 1);
@@ -987,9 +1002,15 @@ static void messageCallback(uint16 source, uint8* data, uint8 length)
 static void applicationClientResponseCallback(uint8* data, uint8 length) 
 {
 #ifdef IS_SERVER
-    //HalUARTWrite(NPI_UART_PORT, data, length); 
-    debugPrintRawArray(data, length);
-#else 
+  debugPrintLine("men");
+  HalUARTWrite(NPI_UART_PORT, data, length); 
+  //debugPrintLine("men");
+  /*uint8 token2[2] = {15,19};
+  HalUARTWrite(NPI_UART_PORT, token2, 2);*/ 
+  uint8 token[2] = "\r\n";
+  HalUARTWrite(NPI_UART_PORT, token, 2); 
+#else
+    debugPrintLine("set tx"); 
     MESH_SetParameter(TX_MESSAGE_CHAR,length, data);
 #endif
 }
