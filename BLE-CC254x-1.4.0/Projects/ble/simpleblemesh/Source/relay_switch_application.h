@@ -9,6 +9,7 @@
 #define RELAY_SWITCH_STATUS_GET_REQUEST 0x02
 #define RELAY_SWITCH_STATUS_GET_RESPONSE 0x03
 
+
 void initializeRelaySwitchApp(applicationClientResponseFunction ccb,
                               applicationSendMessageFunction smcb);
 void processIcomingMessageRelaySwitch(uint16 destination, uint8* data, uint8 length);

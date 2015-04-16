@@ -19,7 +19,7 @@ void initializeRelaySwitchApp(applicationClientResponseFunction ccb,
   P0_1 = status;
 }
 
-void processIcomingMessageRelaySwitch(uint16 destination, uint8* data, uint8 length)
+void processIcomingMessageRelaySwitch(uint16 source, uint8* data, uint8 length)
 {
   switch(data[0]) {
     case RELAY_SWITCH_STATUS_CHANGE:
@@ -29,10 +29,12 @@ void processIcomingMessageRelaySwitch(uint16 destination, uint8* data, uint8 len
     case RELAY_SWITCH_STATUS_GET_REQUEST:
       uint8 responsedata[3] = {RELAY_SWITCH_APPLICATION_CODE, 
                                 RELAY_SWITCH_STATUS_GET_RESPONSE, status};
-      sendMessageCallback(destination, responsedata, 3);
+      sendMessageCallback(source, responsedata, 3);
       break;
     case RELAY_SWITCH_STATUS_GET_RESPONSE:
-      clientCallback(data, length);
+      uint8 forwardData[5] = {0,0, RELAY_SWITCH_APPLICATION_CODE, RELAY_SWITCH_STATUS_GET_RESPONSE, data[1]};
+      *((uint16*)forwardData) = source; 
+      clientCallback(forwardData, length+3);
     break;
   }
 }
