@@ -54,8 +54,10 @@ SOFTWARE.
 
 #include "print_uart.h"
 #include "mesh_transport_network_protocol.h"
+
 #include "applications.h"
 #include "relay_switch_application.h"
+#include "dimmer_application.h"
 /*********************************************************************
 * MACROS
 */
@@ -63,7 +65,7 @@ SOFTWARE.
 /*********************************************************************
 * CONSTANTS
 */
-#define APPLICATIONS_LENGTH     1
+#define APPLICATIONS_LENGTH     2
 
 //#define IS_SERVER 
 //#define DEBUG_PRINT
@@ -79,9 +81,9 @@ SOFTWARE.
 #define NODE_NAME_ADR		9 + NETWORK_NAME_MAX_SIZE
 
 // Uncomment this to burn default values into persistent memory
-//#define BURN_DEFAULTS
-#define DEFAULT_NODE_NAME               "Default mesh node"
-#define DEFAULT_NODE_ID                 126
+// #define BURN_DEFAULTS
+#define DEFAULT_NODE_NAME               "Dimmer node"
+#define DEFAULT_NODE_ID                 131
 #define DEFAULT_NETWORK_NAME            "BT Mesh Network"
 #define DEFAULT_NETWORK_ID              999
 
@@ -228,7 +230,7 @@ static void messageCallback(uint16 source, uint8* data, uint8 length);
 static void dataHandler( uint8 port, uint8 events );
 static void processClientMessage(uint8* data, uint8 length);
 static void applicationClientResponseCallback(uint8* data, uint8 length);
-
+static void UARTWriteWrapper(uint8* data, uint8 length);
 /*********************************************************************
 * PROFILE CALLBACKS
 */
@@ -409,9 +411,14 @@ void Biscuit_Init( uint8 task_id )
   HCI_EXT_SetTxPowerCmd( HCI_EXT_TX_POWER_0_DBM );
   
   // Initialze applications
-  initializeRelaySwitchApp(applicationClientResponseCallback, &sendStatelessMessage);
+  initializeRelaySwitchApp(applicationClientResponseCallback, sendStatelessMessage);
   applications[0].code = RELAY_SWITCH_APPLICATION_CODE;
-  applications[0].fun = &processIcomingMessageRelaySwitch;
+  applications[0].fun = processIcomingMessageRelaySwitch;
+  
+  initializeDimmerApp(applicationClientResponseCallback, sendStatelessMessage, 
+                      UARTWriteWrapper);
+  applications[1].code = DIMMER_APPLICATION_CODE;
+  applications[1].fun = processIncomingMessageDimmer;
   
   // Setup a delayed profile startup
   osal_set_event( biscuit_TaskID, SBP_START_DEVICE_EVT );
@@ -756,6 +763,7 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 *
 * @return  none
 */
+uint8 hejsan = 0;
 static void performPeriodicTask( void )
 {
   periodicTask();
@@ -1009,4 +1017,9 @@ static void applicationClientResponseCallback(uint8* data, uint8 length)
     debugPrintLine("set tx"); 
     MESH_SetParameter(TX_MESSAGE_CHAR,length, data);
 #endif
+}
+
+static void UARTWriteWrapper(uint8* data, uint8 length) 
+{
+  HalUARTWrite(NPI_UART_PORT, data, length); 
 }

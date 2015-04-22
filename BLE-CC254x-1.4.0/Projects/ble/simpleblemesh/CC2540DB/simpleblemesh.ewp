@@ -4327,6 +4327,12 @@
       <name>$PROJ_DIR$\..\Source\Biscuit_Main.c</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\Source\dimmer_application.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\dimmer_application.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\Source\eeprom.c</name>
     </file>
     <file>
