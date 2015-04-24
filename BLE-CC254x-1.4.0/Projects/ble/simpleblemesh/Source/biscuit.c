@@ -68,7 +68,7 @@ SOFTWARE.
 #define APPLICATIONS_LENGTH     2
 
 //#define IS_SERVER 
-//#define DEBUG_PRINT
+#define DEBUG_PRINT
 
 #define MESH_IDENTIFIER         0xBC
 #define MESH_MESSAGE_FLAG_OFFSET        4

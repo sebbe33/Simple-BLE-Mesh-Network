@@ -7,7 +7,7 @@
 #define GROUP_MEMBERSHIP_MAX 40
 #define HEADER_SIZE sizeof(MessageHeader)
 #include "print_uart.h"
-
+#include "OSAL.h"
 /* Private varialbles */
 static uint16 networkIdentifier; 
 static uint16 id;
@@ -26,6 +26,8 @@ static uint8 pendingACKMessages[PENDING_ACK_MAX][23];
 static uint16 groupMemberships[GROUP_MEMBERSHIP_MAX];
 static uint8 groupMemberIndex = 0;
 
+uint8 first = 0;
+uint32 times[2] = {0};
 
 /* Private functions */
 static void constructDataMessage(uint8* data, MessageType type, uint16 destination, uint8* message, uint8 length);
@@ -67,15 +69,26 @@ void processIncomingMessage(uint8* message, uint8 length)
   uint8 newMessage [10]= {0};
         // If invalid message
 	if(length < 6) return;
-
+  
 	MessageHeader* header = (MessageHeader*) message;
 	// Check if the message is addressed to this network
 	if(networkIdentifier != header->networkIdentifier) 
         return;
-    
+        /*if(first == 0){
+          times[0] = osal_GetSystemClock();
+          first = 1;
+          times[1] = 0;
+        } else{
+          times[1] = osal_GetSystemClock();  
+          first =0;
+        }*/
+        
+    debugPrintRaw(&header->sequenceID);
     if(hasProccesedMessage(header)) 
         return;
 
+
+    
 	if(header->type == BROADCAST) 
 	{
         // Forward message to the rest of the network
@@ -109,7 +122,10 @@ void processIncomingMessage(uint8* message, uint8 length)
                 // Invalid message type
                 return;
 		}
-	}
+	} else{
+         // Forward message to the rest of the network
+        advertise(message, length); 
+        }
     
     // Save message as processed
     insertProccesedMessage(header);
@@ -207,6 +223,9 @@ void periodicTask()
     
     // Go through and resend stateful messages which haven't been ACK'ed
     resendNonACKedMessages();
+    debugPrintLine("Sta | End");
+    debugPrintRaw(&proccessedMessageStartIndex);
+    debugPrintRaw(&processedMessageEndIndex);
     
 }
 
@@ -241,19 +260,25 @@ uint8 hasProccesedMessage(MessageHeader* messageHeader)
 }
 
 void insertProccesedMessage(MessageHeader* messageHeader) 
-{
+{   
+    proccessedMessages[processedMessageEndIndex].sequenceID = messageHeader->sequenceID;
+    proccessedMessages[processedMessageEndIndex].source = messageHeader->source;
+    proccessedMessages[processedMessageEndIndex].time = getSystemTimestamp();
+    
     processedMessageEndIndex++;
+    
     if(processedMessageEndIndex == PROCESSED_MESSAGE_LENGTH) {
-        processedMessageEndIndex = 0;
+      // If the end index is the length of the array, the next free index
+        // will be 0, since we then overwrite the oldest values
+      processedMessageEndIndex = 0;
     }
     
     if(processedMessageEndIndex == proccessedMessageStartIndex) {
         proccessedMessageStartIndex++;
+        if(proccessedMessageStartIndex == PROCESSED_MESSAGE_LENGTH) {
+          proccessedMessageStartIndex = 0;
+        }
     }
-    
-    proccessedMessages[processedMessageEndIndex].sequenceID = messageHeader->sequenceID;
-    proccessedMessages[processedMessageEndIndex].source = messageHeader->source;
-    proccessedMessages[processedMessageEndIndex].time = getSystemTimestamp();
 }
 
 void constructDataMessage(uint8* data, MessageType type, uint16 destination, uint8* message, uint8 length) 
@@ -304,7 +329,7 @@ static void sendStatefulMessageHelper(uint16 destination, uint8* data, uint8* me
 void clearProcessedMessages()
 {
     uint32 timestamp = getSystemTimestamp();
-    uint8 searchTo = processedMessageEndIndex + 1;
+    uint8 searchTo = processedMessageEndIndex;
     if(proccessedMessageStartIndex > processedMessageEndIndex) 
     {
         searchTo = PROCESSED_MESSAGE_LENGTH;
@@ -320,7 +345,7 @@ void clearProcessedMessages()
     
     if(searchTo == PROCESSED_MESSAGE_LENGTH) 
     {
-        for(uint8 i = 0; i <= processedMessageEndIndex; i++) 
+        for(uint8 i = 0; i < processedMessageEndIndex; i++) 
         {
             if(proccessedMessages[i].time < timestamp) {
                 proccessedMessageStartIndex++;
