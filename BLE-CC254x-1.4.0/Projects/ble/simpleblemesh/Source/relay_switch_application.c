@@ -3,9 +3,9 @@
 #include "print_uart.h"
 
 #define RELAY_SWITCH_PIN 0x02
-uint8 status = 0;
-applicationClientResponseFunction clientCallback;
-applicationSendMessageFunction sendMessageCallback;
+static uint8 status = 0;
+static applicationClientResponseFunction clientCallback;
+static applicationSendMessageFunction sendMessageCallback;
 
 void initializeRelaySwitchApp(applicationClientResponseFunction ccb,
                               applicationSendMessageFunction smcb) 
