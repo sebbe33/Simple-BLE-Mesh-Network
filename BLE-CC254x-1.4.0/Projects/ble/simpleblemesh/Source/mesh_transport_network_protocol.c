@@ -17,6 +17,7 @@ static getSystemTimestampFunction getSystemTimestamp;
 
 static uint8 proccessedMessageStartIndex = 0, processedMessageEndIndex = 0;
 static ProccessedMessageInformation proccessedMessages[PROCESSED_MESSAGE_LENGTH];
+static uint8 countThreshold;
 static uint8 currentSequenceId = 0;
 
 static PendingACK pendingACKS[PENDING_ACK_MAX];
@@ -26,13 +27,12 @@ static uint8 pendingACKMessages[PENDING_ACK_MAX][23];
 static uint16 groupMemberships[GROUP_MEMBERSHIP_MAX];
 static uint8 groupMemberIndex = 0;
 
-uint8 first = 0;
-uint32 times[2] = {0};
+
 
 /* Private functions */
 static void constructDataMessage(uint8* data, MessageType type, uint16 destination, uint8* message, uint8 length);
 static uint8 isMemberOfGroup(uint16 group);
-static uint8 hasProccesedMessage(MessageHeader* messageHeader);
+static ProccessedMessageInformation* getProccesedMessage(MessageHeader* messageHeader);
 static void insertProccesedMessage(MessageHeader* messageHeader);
 static void insertPendingACK(uint8* message);
 static void removePendingACK(uint8* message);
@@ -54,6 +54,8 @@ void initializeMeshConnectionProtocol(uint16 networkId,
 	advertise = dataFunction;
 	forwardMessageToApp = messageCallback;
     getSystemTimestamp = timestampFunction;
+    countThreshold = 4; // TODO : As input parameter
+    
     lastPendingACKIndex = 0;
     groupMemberIndex = 0;
     proccessedMessageStartIndex = 0;
@@ -66,66 +68,63 @@ void initializeMeshConnectionProtocol(uint16 networkId,
 
 void processIncomingMessage(uint8* message, uint8 length) 
 {
-  uint8 newMessage [10]= {0};
-        // If invalid message
-	if(length < 6) return;
-  
-	MessageHeader* header = (MessageHeader*) message;
-	// Check if the message is addressed to this network
-	if(networkIdentifier != header->networkIdentifier) 
-        return;
-        /*if(first == 0){
-          times[0] = osal_GetSystemClock();
-          first = 1;
-          times[1] = 0;
-        } else{
-          times[1] = osal_GetSystemClock();  
-          first =0;
-        }*/
-        
-    debugPrintRaw(&header->sequenceID);
-    if(hasProccesedMessage(header)) 
-        return;
+    uint8 newMessage [10]= {0};
+    // If invalid message
+    if(length < 6) return;
 
+    MessageHeader* header = (MessageHeader*) message;
+    // Check if the message is addressed to this network
+    if(networkIdentifier != header->networkIdentifier) 
+    return;
+
+    ProccessedMessageInformation* processedMessage = getProccesedMessage(header);    
+    if(processedMessage != NULL) { 
+        processedMessage->timesReceived++;
+        if(processedMessage->timesReceived >= countThreshold) {
+            // Cancel the advertising if still in queue
+            // TODO 
+        }
+        return;
+    }
 
     
-	if(header->type == BROADCAST) 
-	{
-        // Forward message to the rest of the network
-        advertise(message, length);
-        // Forward to application
-		forwardMessageToApp(header->source, &message[6], length - 6);
-	} 
-	else if (header->type == GROUP_BROADCAST && isMemberOfGroup(header->destination)) 
-	{
-        advertise(message, length);
-		forwardMessageToApp(header->source, &message[HEADER_SIZE], length - HEADER_SIZE);
-	} 
-	else if(header->destination == id) 
-	{
-		switch (header->type) 
-		{
-			case STATELESS_MESSAGE:
-				forwardMessageToApp(header->source, &message[HEADER_SIZE], length - HEADER_SIZE);
-				break;
-	  		case STATEFUL_MESSAGE:
-                                forwardMessageToApp(header->source, &message[HEADER_SIZE], length - HEADER_SIZE);
-                                // Send ACK
-                                uint8 sequenceIDToACK = header->sequenceID;
-                                constructDataMessage(newMessage, STATEFUL_MESSAGE_ACK, header->source, &sequenceIDToACK, 1);
-                                advertise(newMessage, HEADER_SIZE + 1);
-	  			break;
-	  		case STATEFUL_MESSAGE_ACK:
-	  			removePendingACK(message);
-	  			break;
-            default:
-                // Invalid message type
-                return;
-		}
-	} else{
-         // Forward message to the rest of the network
-        advertise(message, length); 
-        }
+    if(header->type == BROADCAST) 
+    {
+    // Forward message to the rest of the network
+    advertise(message, length);
+    // Forward to application
+            forwardMessageToApp(header->source, &message[6], length - 6);
+    } 
+    else if (header->type == GROUP_BROADCAST && isMemberOfGroup(header->destination)) 
+    {
+    advertise(message, length);
+            forwardMessageToApp(header->source, &message[HEADER_SIZE], length - HEADER_SIZE);
+    } 
+    else if(header->destination == id) 
+    {
+            switch (header->type) 
+            {
+                    case STATELESS_MESSAGE:
+                            forwardMessageToApp(header->source, &message[HEADER_SIZE], length - HEADER_SIZE);
+                            break;
+                    case STATEFUL_MESSAGE:
+                            forwardMessageToApp(header->source, &message[HEADER_SIZE], length - HEADER_SIZE);
+                            // Send ACK
+                            uint8 sequenceIDToACK = header->sequenceID;
+                            constructDataMessage(newMessage, STATEFUL_MESSAGE_ACK, header->source, &sequenceIDToACK, 1);
+                            advertise(newMessage, HEADER_SIZE + 1);
+                            break;
+                    case STATEFUL_MESSAGE_ACK:
+                            removePendingACK(message);
+                            break;
+        default:
+            // Invalid message type
+            return;
+            }
+    } else{
+     // Forward message to the rest of the network
+    advertise(message, length); 
+    }
     
     // Save message as processed
     insertProccesedMessage(header);
@@ -223,13 +222,9 @@ void periodicTask()
     
     // Go through and resend stateful messages which haven't been ACK'ed
     resendNonACKedMessages();
-    debugPrintLine("Sta | End");
-    debugPrintRaw(&proccessedMessageStartIndex);
-    debugPrintRaw(&processedMessageEndIndex);
-    
 }
 
-uint8 hasProccesedMessage(MessageHeader* messageHeader) 
+ProccessedMessageInformation* getProccesedMessage(MessageHeader* messageHeader) 
 {
     uint8 searchTo = processedMessageEndIndex + 1;
     if(proccessedMessageStartIndex > processedMessageEndIndex) 
@@ -241,7 +236,7 @@ uint8 hasProccesedMessage(MessageHeader* messageHeader)
     {
         if(messageHeader->source == proccessedMessages[i].source
             && messageHeader->sequenceID == proccessedMessages[i].sequenceID) {
-            return TRUE;
+            return &proccessedMessages[i];
         }
     }
     
@@ -251,12 +246,12 @@ uint8 hasProccesedMessage(MessageHeader* messageHeader)
         {
             if(messageHeader->source == proccessedMessages[i].source
                 && messageHeader->sequenceID == proccessedMessages[i].sequenceID) {
-                return TRUE;
+                return &proccessedMessages[i];
             }
         }
     }
     
-    return FALSE;
+    return NULL;
 }
 
 void insertProccesedMessage(MessageHeader* messageHeader) 
@@ -264,6 +259,7 @@ void insertProccesedMessage(MessageHeader* messageHeader)
     proccessedMessages[processedMessageEndIndex].sequenceID = messageHeader->sequenceID;
     proccessedMessages[processedMessageEndIndex].source = messageHeader->source;
     proccessedMessages[processedMessageEndIndex].time = getSystemTimestamp();
+    proccessedMessages[processedMessageEndIndex].timesReceived = 1;
     
     processedMessageEndIndex++;
     

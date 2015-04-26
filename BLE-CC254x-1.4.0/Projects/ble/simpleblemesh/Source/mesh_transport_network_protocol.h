@@ -47,6 +47,7 @@ typedef struct
 {
     uint16 source;
     uint8 sequenceID;
+    uint8 timesReceived;
     uint32 time;
 } ProccessedMessageInformation;
 
@@ -59,6 +60,7 @@ typedef struct
     uint8* message;
     uint8 resentCount;
 } PendingACK;
+
 void initializeMeshConnectionProtocol(uint16 networkIdentifier, 
 	uint16 deviceIdentifier, 
 	advertiseDataFunction dataFunction, 
