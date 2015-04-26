@@ -90,15 +90,15 @@ void processIncomingMessage(uint8* message, uint8 length)
     
     if(header->type == BROADCAST) 
     {
-    // Forward message to the rest of the network
-    advertise(message, length);
-    // Forward to application
-            forwardMessageToApp(header->source, &message[6], length - 6);
+      // Forward message to the rest of the network
+      advertise(message, length, 0);
+      // Forward to application
+      forwardMessageToApp(header->source, &message[6], length - 6);
     } 
     else if (header->type == GROUP_BROADCAST && isMemberOfGroup(header->destination)) 
     {
-    advertise(message, length);
-            forwardMessageToApp(header->source, &message[HEADER_SIZE], length - HEADER_SIZE);
+      advertise(message, length, 0);
+      forwardMessageToApp(header->source, &message[HEADER_SIZE], length - HEADER_SIZE);
     } 
     else if(header->destination == id) 
     {
@@ -112,7 +112,7 @@ void processIncomingMessage(uint8* message, uint8 length)
                             // Send ACK
                             uint8 sequenceIDToACK = header->sequenceID;
                             constructDataMessage(newMessage, STATEFUL_MESSAGE_ACK, header->source, &sequenceIDToACK, 1);
-                            advertise(newMessage, HEADER_SIZE + 1);
+                            advertise(newMessage, HEADER_SIZE + 1, 0);
                             break;
                     case STATEFUL_MESSAGE_ACK:
                             removePendingACK(message);
@@ -122,8 +122,8 @@ void processIncomingMessage(uint8* message, uint8 length)
             return;
             }
     } else{
-     // Forward message to the rest of the network
-    advertise(message, length); 
+      // Forward message to the rest of the network
+      advertise(message, length, 0); 
     }
     
     // Save message as processed
@@ -145,7 +145,7 @@ void broadcastMessage(uint8* message, uint8 length)
         data[i] = message[i-6];
     }
     
-    advertise(data, length + 6);
+    advertise(data, length + 6, 0);
     forwardMessageToApp(header->source, message, length);
 }
 
@@ -154,7 +154,7 @@ void broadcastGroupMessage(uint16 groupDestination, uint8* message, uint8 length
     uint8 data[32];
 	
     constructDataMessage(data, GROUP_BROADCAST, groupDestination, message, length);
-    advertise(data, length + HEADER_SIZE);
+    advertise(data, length + HEADER_SIZE, 0);
 	if(isMemberOfGroup(groupDestination)){
 		forwardMessageToApp(id, message, length);
 	}
@@ -182,7 +182,7 @@ void sendStatelessMessage(uint16 destination, uint8* message, uint8 length)
 		return;
 	}
     constructDataMessage(data, STATELESS_MESSAGE, destination, message, length);
-    advertise(data, length + HEADER_SIZE);
+    advertise(data, length + HEADER_SIZE, 0);
 }
 
 void destructMeshConnectionProtocol()
@@ -319,7 +319,7 @@ static void resendNonACKedMessages()
 static void sendStatefulMessageHelper(uint16 destination, uint8* data, uint8* message, uint8 length) 
 {
     constructDataMessage(data, STATEFUL_MESSAGE, destination, message, length);
-    advertise(data, length + HEADER_SIZE);
+    advertise(data, length + HEADER_SIZE, 0);
 }
 
 void clearProcessedMessages()

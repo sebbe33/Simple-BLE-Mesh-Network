@@ -225,7 +225,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState );
 static void performPeriodicTask( void );
 static void meshServiceChangeCB( uint8 paramID );
 static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent );
-static void advertiseCallback(uint8* data, uint8 length);
+static void advertiseCallback(uint8* data, uint8 length, uint16 delay);
 static void messageCallback(uint16 source, uint8* data, uint8 length);
 static void dataHandler( uint8 port, uint8 events );
 static void processClientMessage(uint8* data, uint8 length);
@@ -942,7 +942,7 @@ static void processClientMessage(uint8* data, uint8 length)
     }		
 }
 
-static void advertiseCallback(uint8* data, uint8 length)
+static void advertiseCallback(uint8* data, uint8 length, uint16 delay)
 {
   if(queueIndex == QUEUE_SIZE) {
       // disregard, queue is full
