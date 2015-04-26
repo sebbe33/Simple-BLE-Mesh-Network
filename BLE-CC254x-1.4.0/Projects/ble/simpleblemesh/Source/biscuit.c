@@ -58,6 +58,7 @@ SOFTWARE.
 #include "applications.h"
 #include "relay_switch_application.h"
 #include "dimmer_application.h"
+#include "advertising_queue.h"
 /*********************************************************************
 * MACROS
 */
