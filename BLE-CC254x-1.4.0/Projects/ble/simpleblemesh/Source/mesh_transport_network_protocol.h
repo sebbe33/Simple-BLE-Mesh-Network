@@ -83,6 +83,8 @@ void destructMeshConnectionProtocol();
 
 void periodicTask();
 
+void backOffDone();
+
 #ifdef	__cplusplus
 }
 #endif

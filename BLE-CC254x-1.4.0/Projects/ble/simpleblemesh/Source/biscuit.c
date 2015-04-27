@@ -578,6 +578,16 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
       GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &isForwarding);  
     }
   }
+  
+  if ( events & SBP_BACKOFF_RELAY_EVENT )
+  {
+    
+    //Notify network protocol that message
+    //is allowed to be relayed
+    backOffDone();
+    
+    return (events ^ SBP_PERIODIC_EVT);
+  }
 
   // Discard unknown events
   return 0;
