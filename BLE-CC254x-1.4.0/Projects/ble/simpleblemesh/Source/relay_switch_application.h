@@ -12,6 +12,7 @@
 
 void initializeRelaySwitchApp(applicationClientResponseFunction ccb,
                               applicationSendMessageFunction smcb);
-void processIcomingMessageRelaySwitch(uint16 destination, uint8* data, uint8 length);
+void processIcomingMessageRelaySwitch(uint16 source, uint8* data, uint8 length);
+uint8 getRelayStatus();
 
 #endif

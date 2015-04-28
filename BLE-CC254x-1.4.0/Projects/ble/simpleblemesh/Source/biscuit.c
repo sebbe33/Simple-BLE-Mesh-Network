@@ -59,6 +59,7 @@ SOFTWARE.
 #include "relay_switch_application.h"
 #include "dimmer_application.h"
 #include "advertising_queue.h"
+#include "node_information_application.h"
 /*********************************************************************
 * MACROS
 */
@@ -66,10 +67,11 @@ SOFTWARE.
 /*********************************************************************
 * CONSTANTS
 */
-#define APPLICATIONS_LENGTH     2
+#define APPLICATIONS_LENGTH     3
 
 //#define IS_SERVER 
-#define DEBUG_PRINT
+#define IS_DIMMER
+//#define DEBUG_PRINT
 
 #define MESH_IDENTIFIER         0xBC
 #define MESH_MESSAGE_FLAG_OFFSET        4
@@ -82,8 +84,8 @@ SOFTWARE.
 #define NODE_NAME_ADR		9 + NETWORK_NAME_MAX_SIZE
 
 // Uncomment this to burn default values into persistent memory
-// #define BURN_DEFAULTS
-#define DEFAULT_NODE_NAME               "Dimmer node"
+//#define BURN_DEFAULTS
+#define DEFAULT_NODE_NAME               "Charles"
 #define DEFAULT_NODE_ID                 131
 #define DEFAULT_NETWORK_NAME            "BT Mesh Network"
 #define DEFAULT_NETWORK_ID              999
@@ -148,7 +150,6 @@ SOFTWARE.
 #define ADV_PERIOD                            180
 #define ADV_PERIOD_EAGER                      500
 
-#define QUEUE_SIZE 5
 /*********************************************************************
 * TYPEDEFS
 */
@@ -318,10 +319,12 @@ void Biscuit_Init( uint8 task_id )
 #ifdef BURN_DEFAULTS
   uint8 networkName[20] = DEFAULT_NETWORK_NAME;
   uint8 nodeName[20] = DEFAULT_NODE_NAME;
+  uint8 nodeNameLength = 12;
   eeprom_write_long(NETWORK_ID_ADR, DEFAULT_NETWORK_ID);
   eeprom_write_long(NODE_ID_ADR, DEFAULT_NODE_ID);
   eeprom_write_bytes(NETWORK_NAME_ADR, networkName, sizeof(networkName));
-  eeprom_write_bytes(NODE_NAME_ADR, nodeName, sizeof(nodeName));
+  eeprom_write_bytes(NODE_NAME_ADR, &nodeNameLength, 1);
+  eeprom_write_bytes(NODE_NAME_ADR + 1, nodeName, nodeNameLength);
 #else
   uint16 networkID = (uint16) eeprom_read_long(NETWORK_ID_ADR);
   // Write network ID to advertising data
@@ -423,6 +426,22 @@ void Biscuit_Init( uint8 task_id )
                       UARTWriteWrapper);
   applications[1].code = DIMMER_APPLICATION_CODE;
   applications[1].fun = processIncomingMessageDimmer;
+  
+  initializeNodeInformationApplication(applicationClientResponseCallback, 
+                     sendStatelessMessage, 
+#ifdef IS_DIMMER
+  DIMMER_APPLICATION_CODE,
+  getDimValue,
+#else 
+  RELAY_SWITCH_APPLICATION_CODE,
+  getRelayStatus,
+#endif
+                     eeprom_write_bytes,
+                     eeprom_read_bytes);
+
+  
+  applications[2].code = NODE_INFORMATION_APPLICATION_CODE;
+  applications[2].fun = processIcomingMessageNodeInformation;
   
   // Setup a delayed profile startup
   osal_set_event( biscuit_TaskID, SBP_START_DEVICE_EVT );
@@ -1000,7 +1019,6 @@ static void applicationClientResponseCallback(uint8* data, uint8 length)
   uint8 token[2] = "\r\n";
   HalUARTWrite(NPI_UART_PORT, token, 2); 
 #else
-    debugPrintLine("set tx"); 
     MESH_SetParameter(TX_MESSAGE_CHAR,length, data);
 #endif
 }

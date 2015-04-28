@@ -38,4 +38,9 @@ void processIcomingMessageRelaySwitch(uint16 source, uint8* data, uint8 length)
     break;
   }
 }
+  
+uint8 getRelayStatus() 
+{
+    return status;
+}
 

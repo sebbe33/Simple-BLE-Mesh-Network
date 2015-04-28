@@ -15,5 +15,5 @@ void initializeDimmerApp(applicationClientResponseFunction ccb,
                               applicationSendMessageFunction smcb,
                               UARTWriteFunction uart);
 void processIncomingMessageDimmer(uint16 destination, uint8* data, uint8 length);
-
+uint8 getDimValue();
 #endif

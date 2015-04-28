@@ -4363,6 +4363,12 @@
       <name>$PROJ_DIR$\..\Source\mesh_transport_network_protocol.h</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\Source\node_information_application.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\node_information_application.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\Source\OSAL_Biscuit.c</name>
     </file>
     <file>
