@@ -556,6 +556,20 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
   
   if(events & SBP_PROCESS_QUEUE_EVENT)
   {
+    
+    AdvQueueItem firstInQueue = getFirstInAdvertisementQueue();
+    
+    if(firstInQueue != NULL){
+       removeFirstInAdvertisementQueue();
+       
+       if(firstInQueue->advertisingTimeStamp == 
+       
+    }
+    
+    
+    
+    
+    
     isForwarding = TRUE;
     
     // Set advertise data to the first message in the queue
@@ -945,6 +959,41 @@ static void processClientMessage(uint8* data, uint8 length)
 
 static void advertiseCallback(uint8* data, uint8 length, uint16 delay)
 {
+  
+  uint8 queueSize = getAdvertisementQueueSize();
+  
+  if (queueSize == 0){
+    //No messages in queue -> add to queue and schedual without delay
+    enqueueAdvertisement(length, data, currentTime+delay);
+    //TODO: schedual without delay
+    
+  } else{
+    
+    AdvQueueItem firstInQueue = getFirstInAdvertisementQueue();
+    uint8 currentTime = //TODO: get system time
+     
+    enqueueAdvertisement(length, data, currentTime+delay); 
+     
+      if(firstInQueue->advertisingTimeStamp < currentTime){
+        //There is a message in queue schedueled sooner than the new message
+        //Don't schedule another one
+        
+        
+      }else{
+        
+      }
+    
+ }
+  
+  
+  if(enqueueStatus == TRUE){
+     
+  }else{
+    
+  }
+  
+  _______
+  
   if(queueIndex == QUEUE_SIZE) {
       // disregard, queue is full
       return;
