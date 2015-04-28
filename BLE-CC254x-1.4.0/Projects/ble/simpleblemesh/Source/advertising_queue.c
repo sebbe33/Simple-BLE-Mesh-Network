@@ -1,6 +1,6 @@
 #include "advertising_queue.h"
 #include "mesh_transport_network_protocol.h"
-
+#include "osal.h"
 #define ADVERTISING_QUEUE_MAX_SIZE 5
 
 static AdvQueueItem advertisingQueue[ADVERTISING_QUEUE_MAX_SIZE];
@@ -14,21 +14,26 @@ uint8 enqueueAdvertisement(uint8 length, uint8* data, uint32 timeStamp) {
     return FALSE;
   }
   
-  uint8 i = size - 1;
-  for(; i >= 0; i--) {
-    if(advertisingQueue[i].advertisingTimeStamp > timeStamp) {
-        // move up in the queue
-        advertisingQueue[i].length = advertisingQueue[i+1].length;
-        advertisingQueue[i].data = advertisingQueue[i+1].data;
-        advertisingQueue[i].advertisingTimeStamp = advertisingQueue[i+1].advertisingTimeStamp;
-    } else {
-      i++; // The current has a lower timestamp => insert one above
-      break;
+  
+  uint8 i = 0;
+  if(size > 0) {
+    i = size - 1;
+    for(; i >= 0; i--) {
+      if(advertisingQueue[i].advertisingTimeStamp > timeStamp) {
+          // move up in the queue
+          advertisingQueue[i].length = advertisingQueue[i+1].length;
+          advertisingQueue[i].data = advertisingQueue[i+1].data;
+          advertisingQueue[i].advertisingTimeStamp = advertisingQueue[i+1].advertisingTimeStamp;
+      } else {
+        // The current has a lower timestamp => insert one above
+        i++;
+        break;
+      }
     }
   }
   
   advertisingQueue[i].length = length;
-  advertisingQueue[i].data = data;
+  osal_memcpy(advertisingQueue[i].data, data, length);
   advertisingQueue[i].advertisingTimeStamp = timeStamp;
   size++;
   
@@ -36,7 +41,7 @@ uint8 enqueueAdvertisement(uint8 length, uint8* data, uint32 timeStamp) {
 }
 
 AdvQueueItem* getFirstInAdvertisementQueue() {
-  return size > 0? &advertisingQueue[size] : NULL;
+  return size > 0? &advertisingQueue[0] : NULL;
     
 }
 
@@ -69,4 +74,6 @@ uint8 dequeueAdvertisement(uint16 source, uint8 sequenceID) {
       advertisingQueue[i].advertisingTimeStamp = advertisingQueue[i+1].advertisingTimeStamp;
      }
   } 
+  
+  return moveDown;
 }

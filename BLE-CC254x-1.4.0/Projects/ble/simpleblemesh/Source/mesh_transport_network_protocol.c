@@ -6,14 +6,18 @@
 #define RESEND_ACK_TIMES 3
 #define GROUP_MEMBERSHIP_MAX 40
 #define HEADER_SIZE sizeof(MessageHeader)
+#define BACKOFF_INTERVAL 30
+
 #include "print_uart.h"
 #include "OSAL.h"
 /* Private varialbles */
 static uint16 networkIdentifier; 
 static uint16 id;
 static advertiseDataFunction advertise;
+static cancelAdvertisementDataFunction cancelAdvertisement;
 static onMessageRecieved forwardMessageToApp;
 static getSystemTimestampFunction getSystemTimestamp;
+static randomFunction getRandom;
 
 static uint8 proccessedMessageStartIndex = 0, processedMessageEndIndex = 0;
 static ProccessedMessageInformation proccessedMessages[PROCESSED_MESSAGE_LENGTH];
@@ -41,19 +45,25 @@ static void clearProcessedMessages();
 static void resendNonACKedMessages();
 static void sendStatefulMessageHelper(uint16 destination, uint8* data, 
         uint8* message, uint8 length);
+static uint16 getBackoffTime();
 
 void initializeMeshConnectionProtocol(uint16 networkId, 
 	uint16 deviceIdentifier, 
 	advertiseDataFunction dataFunction, 
 	onMessageRecieved messageCallback,
-    getSystemTimestampFunction timestampFunction) 
+    getSystemTimestampFunction timestampFunction,
+    randomFunction randFun,
+    cancelAdvertisementDataFunction cancelDataFunction) 
 {
-
+  
     networkIdentifier = networkId; 
 	id = deviceIdentifier;
 	advertise = dataFunction;
 	forwardMessageToApp = messageCallback;
     getSystemTimestamp = timestampFunction;
+    cancelAdvertisement = cancelDataFunction;
+    getRandom = randFun;
+    
     countThreshold = 4; // TODO : As input parameter
     
     lastPendingACKIndex = 0;
@@ -82,7 +92,7 @@ void processIncomingMessage(uint8* message, uint8 length)
         processedMessage->timesReceived++;
         if(processedMessage->timesReceived >= countThreshold) {
             // Cancel the advertising if still in queue
-            // TODO 
+            cancelAdvertisement(processedMessage->source, processedMessage->sequenceID);
         }
         return;
     }
@@ -91,13 +101,13 @@ void processIncomingMessage(uint8* message, uint8 length)
     if(header->type == BROADCAST) 
     {
       // Forward message to the rest of the network
-      advertise(message, length, 0);
+      advertise(message, length, getBackoffTime());
       // Forward to application
       forwardMessageToApp(header->source, &message[6], length - 6);
     } 
     else if (header->type == GROUP_BROADCAST && isMemberOfGroup(header->destination)) 
     {
-      advertise(message, length, 0);
+      advertise(message, length, getBackoffTime());
       forwardMessageToApp(header->source, &message[HEADER_SIZE], length - HEADER_SIZE);
     } 
     else if(header->destination == id) 
@@ -123,7 +133,7 @@ void processIncomingMessage(uint8* message, uint8 length)
             }
     } else{
       // Forward message to the rest of the network
-      advertise(message, length, 0); 
+      advertise(message, length, getBackoffTime()); 
     }
     
     // Save message as processed
@@ -403,5 +413,9 @@ static uint8 isMemberOfGroup(uint16 group)
             return TRUE;
     }
     return FALSE;
+}
+
+static uint16 getBackoffTime() {
+  return (getRandom() % 5) * BACKOFF_INTERVAL;
 }
 

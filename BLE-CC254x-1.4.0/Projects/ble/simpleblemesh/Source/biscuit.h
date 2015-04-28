@@ -42,13 +42,13 @@ extern "C"
 // Simple BLE Peripheral Task Events
 #define SBP_START_DEVICE_EVT                              0x0001
 #define SBP_PERIODIC_EVT                                  0x0002
-#define SBP_RX_TIME_OUT_EVT                               0x0004
 #define SBP_ADV_IN_CONNECTION_EVT                         0x0004
 #define SBP_FORWARDING_DONE_EVENT                         0x0008
 #define SBP_START_OBSERVING                               0x0010
 #define SBP_START_ADV_PERIOD                              0x0020
 #define SBP_STOP_ADV_PERIOD                               0x0040
 #define SBP_PROCESS_QUEUE_EVENT                           0x0080
+#define SBP_START_FORWARDING_EVENT                        0x0100
 
 /*********************************************************************
  * MACROS

@@ -19,6 +19,7 @@ extern "C" {
     #include "comdef.h"
 #endif
 
+
 typedef enum
 {
   BROADCAST = 0,
@@ -30,8 +31,10 @@ typedef enum
 } MessageType;
 
 typedef void (*advertiseDataFunction)(uint8* data, uint8 length, uint16 delay);
+typedef void (*cancelAdvertisementDataFunction)(uint16 source, uint8 sequenceID);
 typedef void (*onMessageRecieved)(uint16 source, uint8* message, uint8 length);
 typedef uint32 (*getSystemTimestampFunction) ();
+typedef uint16 (*randomFunction)();
 
 typedef struct  
 {
@@ -65,7 +68,9 @@ void initializeMeshConnectionProtocol(uint16 networkIdentifier,
 	uint16 deviceIdentifier, 
 	advertiseDataFunction dataFunction, 
 	onMessageRecieved messageCallback,
-    getSystemTimestampFunction timestampFunction);
+        getSystemTimestampFunction timestampFunction,
+        randomFunction randFun,
+        cancelAdvertisementDataFunction cancelDataFunction);
 
 void processIncomingMessage(uint8* data, uint8 length);
 
