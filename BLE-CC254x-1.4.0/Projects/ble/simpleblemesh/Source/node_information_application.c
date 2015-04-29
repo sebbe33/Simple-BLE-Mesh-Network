@@ -27,7 +27,7 @@ void initializeNodeInformationApplication(applicationClientResponseFunction ccb,
   sendMessageCallback = smcb;
   mainApplicationId = mainAppId;
   getMainApplicationStatus = masc;
-  readNameFunction = peristNameFunc;
+  persistNameFunction = peristNameFunc;
   readNameFunction = readNameFunc;
   
   // Read persisted name
@@ -37,7 +37,7 @@ void initializeNodeInformationApplication(applicationClientResponseFunction ccb,
 
 void processIcomingMessageNodeInformation(uint16 source, uint8* data, uint8 length) {
   uint8 message[22];
-  uint8 dum = data[0];
+
   switch(data[0]) {
   case NODE_INFORMATION_GENERAL_INFO_REQUEST:
     uint8 messageLength = 4;

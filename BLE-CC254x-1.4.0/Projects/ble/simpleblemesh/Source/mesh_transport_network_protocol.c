@@ -6,7 +6,7 @@
 #define RESEND_ACK_TIMES 3
 #define GROUP_MEMBERSHIP_MAX 40
 #define HEADER_SIZE sizeof(MessageHeader)
-#define BACKOFF_INTERVAL 30
+#define BACKOFF_INTERVAL 40
 
 #include "print_uart.h"
 #include "OSAL.h"

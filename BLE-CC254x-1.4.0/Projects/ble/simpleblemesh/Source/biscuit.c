@@ -70,8 +70,8 @@ SOFTWARE.
 #define APPLICATIONS_LENGTH     3
 
 //#define IS_SERVER 
-#define IS_DIMMER
-//#define DEBUG_PRINT
+//#define IS_DIMMER
+#define DEBUG_PRINT
 
 #define MESH_IDENTIFIER         0xBC
 #define MESH_MESSAGE_FLAG_OFFSET        4
@@ -85,8 +85,8 @@ SOFTWARE.
 
 // Uncomment this to burn default values into persistent memory
 //#define BURN_DEFAULTS
-#define DEFAULT_NODE_NAME               "Charles"
-#define DEFAULT_NODE_ID                 131
+#define DEFAULT_NODE_NAME               "Php"
+#define DEFAULT_NODE_ID                 125
 #define DEFAULT_NETWORK_NAME            "BT Mesh Network"
 #define DEFAULT_NETWORK_ID              999
 
@@ -98,16 +98,16 @@ SOFTWARE.
 #define DEFAULT_ADVERTISING_IN_CONNECTION_INTERVAL 165
 
 #define FORWARDING_INTERVAL 90
-#define FORWARDING_IN_CONNECTION_INTERVAL 300
+#define FORWARDING_IN_CONNECTION_INTERVAL 200
 
 // General discoverable mode advertises indefinitely
 #define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_GENERAL
 
 // Minimum connection interval (units of 1.25ms, 80=100ms) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_MIN_CONN_INTERVAL     16
+#define DEFAULT_DESIRED_MIN_CONN_INTERVAL     70
 
 // Maximum connection interval (units of 1.25ms, 800=1000ms) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     16
+#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     70
 
 // Slave latency to use if automatic parameter update request is enabled
 #define DEFAULT_DESIRED_SLAVE_LATENCY         0
@@ -141,7 +141,7 @@ SOFTWARE.
 #define DEFAULT_DISCOVERY_WHITE_LIST          FALSE
 
 // Maximum number of scan responses
-#define DEFAULT_MAX_SCAN_RES                  8
+#define DEFAULT_MAX_SCAN_RES                  15
 
 #define DEFAULT                               1
 #define FORWARD                               2
@@ -361,7 +361,7 @@ void Biscuit_Init( uint8 task_id )
   {
     GAP_SetParamValue( TGAP_GEN_DISC_SCAN, DEFAULT_SCAN_DURATION );
     GAP_SetParamValue( TGAP_LIM_DISC_SCAN, DEFAULT_SCAN_DURATION );
-    GAP_SetParamValue( TGAP_GEN_DISC_SCAN_WIND, 30 );
+    GAP_SetParamValue( TGAP_GEN_DISC_SCAN_WIND, 30);
     GAP_SetParamValue( TGAP_GEN_DISC_SCAN_INT,  35);
   }
   
@@ -766,7 +766,7 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 *
 * @return  none
 */
-uint8 hejsan = 0;
+
 static void performPeriodicTask( void )
 {
   periodicTask();
