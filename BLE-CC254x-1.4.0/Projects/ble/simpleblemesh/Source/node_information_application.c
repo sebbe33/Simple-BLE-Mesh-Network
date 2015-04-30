@@ -40,6 +40,7 @@ void processIcomingMessageNodeInformation(uint16 source, uint8* data, uint8 leng
 
   switch(data[0]) {
   case NODE_INFORMATION_GENERAL_INFO_REQUEST:
+#ifndef IS_SERVER
     uint8 messageLength = 4;
     message[0] = NODE_INFORMATION_APPLICATION_CODE;
     message[1] = NODE_INFORMATION_GENERAL_INFO_RESPONSE;
@@ -58,6 +59,7 @@ void processIcomingMessageNodeInformation(uint16 source, uint8* data, uint8 leng
     }
     
     sendMessageCallback(source, message, messageLength);
+#endif
     break;
   case NODE_INFORMATION_GENERAL_INFO_RESPONSE:
     message[2] =  NODE_INFORMATION_APPLICATION_CODE;
@@ -68,12 +70,14 @@ void processIcomingMessageNodeInformation(uint16 source, uint8* data, uint8 leng
     clientCallback(message, length+3);
     break;
   case NODE_INFORMATION_GET_NAME_REQUEST:
+#ifndef IS_SERVER
      message[0] = NODE_INFORMATION_APPLICATION_CODE;
      message[1] = NODE_INFORMATION_GET_NAME_RESPONSE; 
      message[2] = nodeNameLength;
     // Copy node name
     osal_memcpy(&message[3], nodeName, nodeNameLength);
     sendMessageCallback(source, message, nodeNameLength + 3);
+#endif
     break;
   case NODE_INFORMATION_GET_NAME_RESPONSE:
     message[2] =  NODE_INFORMATION_APPLICATION_CODE;
