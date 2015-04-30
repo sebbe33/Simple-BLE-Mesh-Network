@@ -4315,6 +4315,12 @@
   <group>
     <name>APP</name>
     <file>
+      <name>$PROJ_DIR$\..\Source\advertising_queue.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\advertising_queue.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\Source\applications.h</name>
     </file>
     <file>
@@ -4355,6 +4361,12 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\mesh_transport_network_protocol.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\node_information_application.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\node_information_application.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\OSAL_Biscuit.c</name>

@@ -38,3 +38,7 @@ void processIncomingMessageDimmer(uint16 source, uint8* data, uint8 length)
   }
 }
 
+uint8 getDimValue() {
+  return dimValue;
+}
+
