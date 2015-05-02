@@ -70,6 +70,8 @@ SOFTWARE.
 * CONSTANTS
 */
 #define BLUE_LED_BINK_INTERVAL 1000
+#define CLICK_TIMEOUT 1500
+
 #define APPLICATIONS_LENGTH     4
 
 //#define IS_SERVER 
@@ -224,6 +226,7 @@ static uint8 isForwarding = FALSE;
 static taskBallbackFunction taskToBeCalled;
 static uint8 isBlueLedOn = FALSE;
 static uint8 isBlueLedBlinking = FALSE;
+static uint8 clickCounter = 0;
 /*********************************************************************
 * LOCAL FUNCTIONS
 */
@@ -649,14 +652,24 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     taskToBeCalled();
   }
 
-  if(events & BLUE_LED_BINK_INTERVAL) {
+  if(events & SBP_BLNK_EVENT) {
     if(isBlueLedBlinking == TRUE) {
-      toggleBlueLed(isBlueLedOn? FALSE : TRUE);
+      toggleBlueLed(isBlueLedOn == TRUE? FALSE : TRUE);
       // Restart timer
-      osal_start_timerEx(biscuit_TaskID, BLUE_LED_BINK_INTERVAL, BLUE_LED_BINK_INTERVAL);
+      osal_start_timerEx(biscuit_TaskID, SBP_BLNK_EVENT, BLUE_LED_BINK_INTERVAL);
     }
-       
-       
+  }
+  
+  if(events & SBP_CLICK_TIMEOUT_EVENT) {
+    if(clickCounter == 2) {
+      // Single click
+      debugPrintLine("Single");
+      pairOtherNodeToThisNetwork();
+    } else if(clickCounter <= 4) {
+      // Double click
+      debugPrintLine("Double");
+    }
+    clickCounter = 0;
   }
   // Discard unknown events
   return 0;
@@ -822,12 +835,9 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 *
 * @return  none
 */
-uint8 counterr = 0;
 static void performPeriodicTask( void )
 {
   periodicTask();
-  debugPrintRaw(&counterr);
-  P2_0 = 1;
 }
 
 /*********************************************************************
@@ -1101,7 +1111,8 @@ static void shedueTaskWrapper(uint16 delay, taskBallbackFunction task)
 
 static void toggleBlueLed(uint8 state)
 {
-  P0_7 = isBlueLedOn = (state == TRUE)? 0:1;
+  isBlueLedOn = state;
+  P0_7 = (isBlueLedOn == TRUE)? 0:1;
 }
 
 static void toggleBlueLedBlinking(uint8 state) 
@@ -1112,13 +1123,17 @@ static void toggleBlueLedBlinking(uint8 state)
     osal_stop_timerEx(biscuit_TaskID, SBP_BLNK_EVENT);
   } else if(isBlueLedBlinking == FALSE && state == TRUE) {
     // Turn on
-    osal_start_timerEx(biscuit_TaskID, SBP_GENERAL_DELAY_EVENT, BLUE_LED_BINK_INTERVAL);
+    osal_start_timerEx(biscuit_TaskID, SBP_BLNK_EVENT, BLUE_LED_BINK_INTERVAL);
   }
   isBlueLedBlinking = state;
   
 }
 
+
 static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys ) {
-  counterr++;
-  debugPrintLine("HEJSAN");
+  clickCounter++;
+  if(clickCounter % 2 == 0) {
+    osal_stop_timerEx(biscuit_TaskID, SBP_CLICK_TIMEOUT_EVENT);
+    osal_start_timerEx(biscuit_TaskID, SBP_CLICK_TIMEOUT_EVENT, CLICK_TIMEOUT);
+  }
 }

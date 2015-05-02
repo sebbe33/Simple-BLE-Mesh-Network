@@ -51,7 +51,7 @@ extern "C"
 #define SBP_START_FORWARDING_EVENT                        0x0100
 #define SBP_GENERAL_DELAY_EVENT                           0x0200
 #define SBP_BLNK_EVENT                                    0x0400
-
+#define SBP_CLICK_TIMEOUT_EVENT                           0x0800
 /*********************************************************************
  * MACROS
  */
