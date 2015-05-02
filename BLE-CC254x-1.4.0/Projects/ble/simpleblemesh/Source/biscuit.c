@@ -827,6 +827,7 @@ static void performPeriodicTask( void )
 {
   periodicTask();
   debugPrintRaw(&counterr);
+  P2_0 = 1;
 }
 
 /*********************************************************************
