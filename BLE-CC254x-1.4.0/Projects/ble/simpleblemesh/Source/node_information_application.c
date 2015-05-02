@@ -8,8 +8,8 @@
 static applicationClientResponseFunction clientCallback;
 static applicationSendMessageFunction sendMessageCallback;
 static mainApplicationStatusCallback getMainApplicationStatus;
-static persistNameCallback persistNameFunction;
-static readNameCallback readNameFunction;
+static persistDataCallback persistNameFunction;
+static readDataCallback readNameFunction;
 static uint8 mainApplicationId = 0;
 static uint8 nodeName[NODE_NAME_LENGTH_MAX] = {0};
 static uint8 nodeNameLength = 0;
@@ -21,8 +21,8 @@ void initializeNodeInformationApplication(applicationClientResponseFunction ccb,
                               applicationSendMessageFunction smcb,
                               uint8 mainAppId,
                               mainApplicationStatusCallback masc,
-                              persistNameCallback peristNameFunc,
-                              readNameCallback readNameFunc) {
+                              persistDataCallback peristNameFunc,
+                              readDataCallback readNameFunc) {
   clientCallback = ccb;
   sendMessageCallback = smcb;
   mainApplicationId = mainAppId;

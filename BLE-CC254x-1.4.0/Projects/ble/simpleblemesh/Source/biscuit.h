@@ -49,6 +49,8 @@ extern "C"
 #define SBP_STOP_ADV_PERIOD                               0x0040
 #define SBP_PROCESS_QUEUE_EVENT                           0x0080
 #define SBP_START_FORWARDING_EVENT                        0x0100
+#define SBP_GENERAL_DELAY_EVENT                           0x0200
+#define SBP_BLNK_EVENT                                    0x0400
 
 /*********************************************************************
  * MACROS

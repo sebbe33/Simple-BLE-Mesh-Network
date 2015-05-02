@@ -39,7 +39,7 @@ SOFTWARE.
 #include "gapgattserver.h"
 #include "gattservapp.h"
 //#include "devinfoservice.h"
-
+#include "hal_key.h"
 #include "peripheralObserverProfile.h"
 
 #include "gapbondmgr.h"
@@ -60,6 +60,8 @@ SOFTWARE.
 #include "dimmer_application.h"
 #include "advertising_queue.h"
 #include "node_information_application.h"
+#include "network_information_application.h"
+
 /*********************************************************************
 * MACROS
 */
@@ -67,11 +69,12 @@ SOFTWARE.
 /*********************************************************************
 * CONSTANTS
 */
-#define APPLICATIONS_LENGTH     3
+#define BLUE_LED_BINK_INTERVAL 1000
+#define APPLICATIONS_LENGTH     4
 
 //#define IS_SERVER 
 //#define IS_DIMMER
-//#define DEBUG_PRINT
+#define DEBUG_PRINT
 
 #define MESH_IDENTIFIER         0xBC
 #define MESH_MESSAGE_FLAG_OFFSET        4
@@ -87,6 +90,7 @@ SOFTWARE.
 //#define BURN_DEFAULTS
 #define DEFAULT_NODE_NAME               "Php"
 #define DEFAULT_NODE_ID                 125
+#define DEFAULT_NTETORK_NAME_LENGTH     15
 #define DEFAULT_NETWORK_NAME            "BT Mesh Network"
 #define DEFAULT_NETWORK_ID              999
 
@@ -215,9 +219,11 @@ static uint8 advertData[31] =
 
 // GAP GATT Attributes
 static uint8 attDeviceName[GAP_DEVICE_NAME_LEN] = "EHMARINE";
-uint8 isForwarding = FALSE;
+static uint8 isForwarding = FALSE;
 
-uint8 count = 0;
+static taskBallbackFunction taskToBeCalled;
+static uint8 isBlueLedOn = FALSE;
+static uint8 isBlueLedBlinking = FALSE;
 /*********************************************************************
 * LOCAL FUNCTIONS
 */
@@ -234,6 +240,13 @@ static void applicationClientResponseCallback(uint8* data, uint8 length);
 static void UARTWriteWrapper(uint8* data, uint8 length);
 static void processQueue();
 static void cancelAdvertisementCallback(uint16 source, uint8 sequenceId);
+static void initMeshProtocolWrapper(uint16 networkID, uint16 nodeID);
+static void shedueTaskWrapper(uint16 delay, taskBallbackFunction task);
+static void toggleBlueLed(uint8 state);
+static void toggleBlueLedBlinking(uint8 state);
+
+static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys );
+
 /*********************************************************************
 * PROFILE CALLBACKS
 */
@@ -320,24 +333,25 @@ void Biscuit_Init( uint8 task_id )
   uint8 networkName[20] = DEFAULT_NETWORK_NAME;
   uint8 nodeName[20] = DEFAULT_NODE_NAME;
   uint8 nodeNameLength = 12;
-  eeprom_write_long(NETWORK_ID_ADR, DEFAULT_NETWORK_ID);
+  eeprom_write_long(NETWORK_ID_ADR , DEFAULT_NETWORK_ID);
   eeprom_write_long(NODE_ID_ADR, DEFAULT_NODE_ID);
-  eeprom_write_bytes(NETWORK_NAME_ADR, networkName, sizeof(networkName));
+  uint8 networkNameLength = DEFAULT_NTETORK_NAME_LENGTH;
+  eeprom_write_bytes(NETWORK_NAME_ADR, &networkNameLength, 1);
+  eeprom_write_bytes(NETWORK_NAME_ADR + 1, networkName, sizeof(networkName));
   eeprom_write_bytes(NODE_NAME_ADR, &nodeNameLength, 1);
   eeprom_write_bytes(NODE_NAME_ADR + 1, nodeName, nodeNameLength);
 #else
-  uint16 networkID = (uint16) eeprom_read_long(NETWORK_ID_ADR);
+  
+  //uint16 networkID = (uint16) eeprom_read_long(NETWORK_ID_ADR);
   // Write network ID to advertising data
-  *((uint16*) &advertData[5]) = networkID;
-  uint16 nodeID = (uint16) eeprom_read_long(NODE_ID_ADR);
-  eeprom_read_bytes(NETWORK_NAME_ADR, &advertData[9], 20);
-  initializeMeshConnectionProtocol(networkID,nodeID,&advertiseCallback, 
+  //*((uint16*) &advertData[5]) = networkID;
+  //uint16 nodeID = (uint16) eeprom_read_long(NODE_ID_ADR);
+  //eeprom_read_bytes(NETWORK_NAME_ADR, &advertData[9], 20);
+  /*initializeMeshConnectionProtocol(networkID,nodeID,&advertiseCallback, 
                                    &messageCallback, &osal_GetSystemClock, 
                                    &osal_rand,
-                                   &cancelAdvertisementCallback);
+                                   &cancelAdvertisementCallback);*/
 #endif
-  
-  GAPRole_SetParameter(GAPROLE_ADVERT_DATA, sizeof(advertData), advertData);
   
   
   // Setup observer related GAP profile properties
@@ -388,15 +402,19 @@ void Biscuit_Init( uint8 task_id )
   // Register callback with MESHService
   VOID MESH_RegisterAppCBs( &biscuit_MESHServiceCBs );
   
+  RegisterForKeys( biscuit_TaskID );
   P0SEL = 0; // Configure Port 0 as GPIO
   P1SEL = 0; // Configure Port 1 as GPIO
   P2SEL = 0; // Configure Port 2 as GPIO
   
-  P0DIR = 0xFF;
+  P0DIR = 0xFC; // Port 0 pins P0.0 and P0.1 as input (buttons),
+                // all others (P0.2-P0.7) as output
+  //P0DIR = 0xFF;
   P1DIR = 0xFF; 
   P2DIR = 0x1F; 
 
-  P0 = 0x80; 
+  //P0 = 0x80;
+  P0 = 0x83; 
   P1 = 0;   // All pins on port 1 to low
   P2 = 0;   // All pins on port 2 to low
   
@@ -427,21 +445,44 @@ void Biscuit_Init( uint8 task_id )
   applications[1].code = DIMMER_APPLICATION_CODE;
   applications[1].fun = processIncomingMessageDimmer;
   
+  /* Node information app */
   initializeNodeInformationApplication(applicationClientResponseCallback, 
-                     sendStatelessMessage, 
+                    sendStatelessMessage, 
 #ifdef IS_DIMMER
-  DIMMER_APPLICATION_CODE,
-  getDimValue,
+                    DIMMER_APPLICATION_CODE,
+                    getDimValue,
 #else 
-  RELAY_SWITCH_APPLICATION_CODE,
-  getRelayStatus,
+                    RELAY_SWITCH_APPLICATION_CODE,
+                    getRelayStatus,
 #endif
-                     eeprom_write_bytes,
-                     eeprom_read_bytes);
+                    eeprom_write_bytes,
+                    eeprom_read_bytes);
 
   
   applications[2].code = NODE_INFORMATION_APPLICATION_CODE;
   applications[2].fun = processIcomingMessageNodeInformation;
+  
+  /* Network information application*/
+  initializeNetworkInformationApp(applicationClientResponseCallback,
+                              sendStatefulMessage,
+                              broadcastMessage,
+                              eeprom_write_bytes,
+                              eeprom_read_bytes,
+                              shedueTaskWrapper,
+                              initMeshProtocolWrapper,
+                              toggleBlueLed,
+                              toggleBlueLedBlinking);
+  applications[3].code = NETWORK_INFORMATION_APPLICATION_CODE;
+  applications[3].fun = processIncomingMessageNetworkInformation;
+  
+  // Initiate mesh protocol
+  *((uint16*) &advertData[5]) = getNetworkID();
+  uint8 netNameLength = 0;
+  uint8* netName = getNetworkName(&netNameLength);
+  osal_memcpy(&advertData[9], netName, netNameLength);
+  initMeshProtocolWrapper(getNetworkID(), getNodeID());
+  
+  GAPRole_SetParameter(GAPROLE_ADVERT_DATA, sizeof(advertData), advertData);
   
   // Setup a delayed profile startup
   osal_set_event( biscuit_TaskID, SBP_START_DEVICE_EVT );
@@ -603,7 +644,20 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
                        isAdvertisingPeriodically == FALSE ? FORWARDING_IN_CONNECTION_INTERVAL : FORWARDING_INTERVAL);
     removeFirstInAdvertisementQueue();
   }
+  
+  if(events & SBP_GENERAL_DELAY_EVENT) {
+    taskToBeCalled();
+  }
 
+  if(events & BLUE_LED_BINK_INTERVAL) {
+    if(isBlueLedBlinking == TRUE) {
+      toggleBlueLed(isBlueLedOn? FALSE : TRUE);
+      // Restart timer
+      osal_start_timerEx(biscuit_TaskID, BLUE_LED_BINK_INTERVAL, BLUE_LED_BINK_INTERVAL);
+    }
+       
+       
+  }
   // Discard unknown events
   return 0;
 }
@@ -621,7 +675,9 @@ static void biscuit_ProcessOSALMsg( osal_event_hdr_t *pMsg )
 {
   switch ( pMsg->event )
   {
-    
+      case KEY_CHANGE:
+        simpleBLEPeripheral_HandleKeys( ((keyChange_t *)pMsg)->state, ((keyChange_t *)pMsg)->keys );
+      break;
   default:
     // do nothing
     break;
@@ -656,7 +712,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
   case GAPROLE_CONNECTED:
     { 
       if(isAdvertisingPeriodically == TRUE) {
-        P0_7 = 0; // Turn on blue led to indicate connection
+        toggleBlueLed(TRUE); // Turn on blue led to indicate connection
         // If we're advertising periodically, turn it off while in connection
         isAdvertisingPeriodically = FALSE;
         osal_stop_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD);
@@ -681,7 +737,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
       debugPrintLine("GAPROLE_WAITING"); 
 #endif
       if(isAdvertisingPeriodically == FALSE) {
-        P0_7 = 1; // Turn off blue led to indicate connection
+        toggleBlueLed(FALSE); // Turn off blue led to indicate connection
         // Restart periodic advertisement after disconnection
         osal_stop_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD);
         osal_stop_timerEx(biscuit_TaskID, SBP_STOP_ADV_PERIOD);
@@ -766,11 +822,11 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
 *
 * @return  none
 */
-
+uint8 counterr = 0;
 static void performPeriodicTask( void )
 {
   periodicTask();
-
+  debugPrintRaw(&counterr);
 }
 
 /*********************************************************************
@@ -1026,4 +1082,42 @@ static void applicationClientResponseCallback(uint8* data, uint8 length)
 static void UARTWriteWrapper(uint8* data, uint8 length) 
 {
   HalUARTWrite(NPI_UART_PORT, data, length); 
+}
+
+static void initMeshProtocolWrapper(uint16 netID, uint16 nID) 
+{
+    initializeMeshConnectionProtocol(netID,nID,&advertiseCallback, 
+                                   &messageCallback, &osal_GetSystemClock, 
+                                   &osal_rand,
+                                   &cancelAdvertisementCallback);
+}
+
+static void shedueTaskWrapper(uint16 delay, taskBallbackFunction task) 
+{
+    taskToBeCalled = task;
+    osal_start_timerEx(biscuit_TaskID, SBP_GENERAL_DELAY_EVENT, delay);
+}
+
+static void toggleBlueLed(uint8 state)
+{
+  P0_7 = isBlueLedOn = (state == TRUE)? 0:1;
+}
+
+static void toggleBlueLedBlinking(uint8 state) 
+{
+  if(isBlueLedBlinking == TRUE && state == FALSE) {
+    // Turn off
+    toggleBlueLed(FALSE);
+    osal_stop_timerEx(biscuit_TaskID, SBP_BLNK_EVENT);
+  } else if(isBlueLedBlinking == FALSE && state == TRUE) {
+    // Turn on
+    osal_start_timerEx(biscuit_TaskID, SBP_GENERAL_DELAY_EVENT, BLUE_LED_BINK_INTERVAL);
+  }
+  isBlueLedBlinking = state;
+  
+}
+
+static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys ) {
+  counterr++;
+  debugPrintLine("HEJSAN");
 }

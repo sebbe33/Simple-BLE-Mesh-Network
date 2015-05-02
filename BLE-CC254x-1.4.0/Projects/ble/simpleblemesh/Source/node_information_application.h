@@ -26,4 +26,8 @@ void initializeNodeInformationApplication(applicationClientResponseFunction ccb,
                               readNameCallback readNameFunction);
 void processIcomingMessageNodeInformation(uint16 source, uint8* data, uint8 length);
 
+uint8* getNetworkName(uint8* lengthPointer);
+uint16 getNetworkID();
+uint16 getNodeID();
+
 #endif

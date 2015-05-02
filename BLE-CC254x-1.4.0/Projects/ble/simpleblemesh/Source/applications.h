@@ -11,6 +11,12 @@ typedef void (*applicationSendMessageFunction)(uint16 destination, uint8* messag
 // Called when an incoming message for an application is to be processed
 typedef void (*applicationProcessMessageFunction)(uint16 destination, uint8* data, uint8 length);
 
+typedef void (*applicationSendBroadcastFunction)(uint8* data, uint8 length);
+
+
+typedef void (*persistDataCallback)(uint16 address, uint8* data, uint8 length);
+typedef void (*readDataCallback)(uint16 address, uint8* data, uint8 length);
+
 typedef struct {
     uint8 code;
     applicationProcessMessageFunction fun;
