@@ -3,7 +3,7 @@
 #include "comdef.h"
 #include "applications.h"
 
-#define NETWORK_INFORMATION_APPLICATION_CODE 3
+#define NETWORK_INFORMATION_APPLICATION_CODE 4
 #define NETWORK_INFO_SET_NAME 0x01
 #define NETWORK_INFO_GET_NAME_REQUEST 0x02
 #define NETWORK_INFO_GET_NAME_RESPONSE 0x03
@@ -16,6 +16,7 @@ typedef void (*changeTransportProtocolSettings)(uint16 networkID, uint16 nodeID)
 typedef void (*taskBallbackFunction)();
 typedef void (*schduleTaskFunction) (uint16 delay, taskBallbackFunction fun);
 typedef void (*toggleFunction) (uint8 state);
+
 void initializeNetworkInformationApp(applicationClientResponseFunction ccb,
                               applicationSendMessageFunction smcb,
                               applicationSendBroadcastFunction asbf,
@@ -24,7 +25,8 @@ void initializeNetworkInformationApp(applicationClientResponseFunction ccb,
                               schduleTaskFunction taskFun,
                               changeTransportProtocolSettings initTransportProtocol,
                               toggleFunction toggleBlueLedFunction,
-                              toggleFunction toggleBlueLedBlinkingFunction);
+                              toggleFunction toggleBlueLedBlinkingFunction,
+                              toggleFunction togglePeriodicAdvertisementFunction);
 void processIncomingMessageNetworkInformation(uint16 source, uint8* data, uint8 length);
 void pairOtherNodeToThisNetwork();
 void pairThisNodeToOtherNetwork();

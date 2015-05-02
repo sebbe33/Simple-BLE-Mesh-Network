@@ -7,12 +7,13 @@
 #define UNIVERSAL_PAIRING_ADDRESS 0x0000
 #define UNIVERSAL_NETWORK_ID 0xFFFF
 #define PAIRING_TIMEOUT         30000
+#define BURST_INTERVAL          5000
 
 #include "print_uart.h"
 
 static uint16 networkID;
 static uint16 nodeID;
-static uint16 nextNodeID;
+static uint16 nextNodeID = 9;
 static uint8 networkName[NETWORK_NAME_LENGTH_MAX] = {0};
 static uint8 networkNameLength;
 static uint8 isPairing = FALSE;
@@ -27,6 +28,7 @@ static applicationSendBroadcastFunction sendBroadcast;
 static schduleTaskFunction sheduleTask;
 static toggleFunction toggleBlueLed;
 static toggleFunction toggleBlueLedBlinking;
+static toggleFunction togglePeriodicAdvertisement;
 
 /* Local functions */
 static void readNetworkID();
@@ -37,6 +39,7 @@ static void readNodeID();
 static void persistNodeID();
 static void cancelPairing();
 static void delayedBlueLedShutoff();
+static void reccuringEvent();
 void initializeNetworkInformationApp(applicationClientResponseFunction ccb,
                               applicationSendMessageFunction smcb,
                               applicationSendBroadcastFunction asbf,
@@ -45,7 +48,8 @@ void initializeNetworkInformationApp(applicationClientResponseFunction ccb,
                               schduleTaskFunction taskFun,
                               changeTransportProtocolSettings initTransportProtocol,
                               toggleFunction toggleBlueLedFunction,
-                              toggleFunction toggleBlueLedBlinkingFunction) 
+                              toggleFunction toggleBlueLedBlinkingFunction,
+                              toggleFunction togglePeriodicAdvertisementFunction) 
 {
   clientCallback = ccb;
   sendMessage = smcb;
@@ -56,7 +60,7 @@ void initializeNetworkInformationApp(applicationClientResponseFunction ccb,
   sheduleTask = taskFun;
   toggleBlueLed = toggleBlueLedFunction;
   toggleBlueLedBlinking = toggleBlueLedBlinkingFunction;
-  
+  togglePeriodicAdvertisement = togglePeriodicAdvertisementFunction;
   readNetworkID();
   readNodeID();
   readNetworkName();
@@ -109,30 +113,27 @@ void processIncomingMessageNetworkInformation(uint16 source, uint8* data, uint8 
       }
       
       // Set the network ID
-      networkID = *((uint16*) data[1]);
+      networkID = *((uint16*) &data[1]);
       // Set the node id
-      nodeID = *((uint16*) message[3]);
-      
+      nodeID = *((uint16*) &data[3]);
+
       // Send a response
       message[0] = NETWORK_INFORMATION_APPLICATION_CODE;
       message[1] = NETWORK_INFO_PAIRING_RESPONSE;
       *((uint16*)&message[2]) = nodeID;
       sendMessage(source, message, 4);
-      
+      debugPrintRawArray(message, 4);
       // Change the transport protocol settings to the received ones
       changeTransportProtocol(networkID, nodeID);
       break;
       
     case NETWORK_INFO_PAIRING_RESPONSE:
       if(isPairing == TRUE) {
-        isPairing = FALSE;
+        cancelPairing();
         // Turn on constant blue light to indicate success
-        toggleBlueLedBlinking(FALSE);
         toggleBlueLed(TRUE);
         sheduleTask(5000, delayedBlueLedShutoff);
-      
-        // Change back the transport protocol settings
-        changeTransportProtocol(networkID, nodeID);
+        debugPrintLine("Got it");
         // Send additional info
         uint16 destination = *((uint16*)&data[1]);
         message[0] = NETWORK_INFORMATION_APPLICATION_CODE;
@@ -174,20 +175,13 @@ void processIncomingMessageNetworkInformation(uint16 source, uint8* data, uint8 
 
 void pairOtherNodeToThisNetwork() 
 {
-  uint8 message[6] = {NETWORK_INFORMATION_APPLICATION_CODE, NETWORK_INFO_PAIRING_INFORMATION};
-  // Add the network ID
-  *((uint16*) message[2]) = networkID;
-  // Add next available node id
-  *((uint16*) message[4]) = nextNodeID;
-  
   // set the tranport protocol settings to be universal (so that every device
   // can observe sent messages).
   changeTransportProtocol(UNIVERSAL_NETWORK_ID, nodeID);
-    
-  sendMessage(UNIVERSAL_PAIRING_ADDRESS, message, 6);
+  togglePeriodicAdvertisement(FALSE);
   
-  // set timeout function
-  sheduleTask(PAIRING_TIMEOUT, cancelPairing);
+  // begin reoccuring event
+  reccuringEvent();
   isPairing = TRUE;
   toggleBlueLedBlinking(TRUE);
 }
@@ -195,6 +189,7 @@ void pairOtherNodeToThisNetwork()
 void pairThisNodeToOtherNetwork() 
 {
   changeTransportProtocol(UNIVERSAL_NETWORK_ID, UNIVERSAL_PAIRING_ADDRESS);
+  togglePeriodicAdvertisement(FALSE);
   isPairing = TRUE;
   toggleBlueLedBlinking(TRUE);
   // set timeout function
@@ -244,10 +239,32 @@ static void cancelPairing()
   readNetworkID();
   toggleBlueLedBlinking(FALSE);
   isPairing = FALSE;
+  // Change back to the original transport protocol settings
+  changeTransportProtocol(networkID, nodeID);
+  togglePeriodicAdvertisement(TRUE);
 }
 
 static void delayedBlueLedShutoff() 
 {
   toggleBlueLed(FALSE);
+}
+
+uint16 pairingTimeoutCounter = 0;
+static void reccuringEvent() 
+{
+  if(pairingTimeoutCounter >= PAIRING_TIMEOUT) {
+    cancelPairing();
+    return;
+  }
+  
+  uint8 message[6] = {NETWORK_INFORMATION_APPLICATION_CODE, NETWORK_INFO_PAIRING_INFORMATION};
+  // Add the network ID
+  *((uint16*) &message[2]) = networkID;
+  // Add next available node id
+  *((uint16*) &message[4]) = nextNodeID;
+  sendMessage(UNIVERSAL_PAIRING_ADDRESS, message, 6);
+  
+  sheduleTask(BURST_INTERVAL, reccuringEvent);
+  pairingTimeoutCounter += BURST_INTERVAL;
 }
 

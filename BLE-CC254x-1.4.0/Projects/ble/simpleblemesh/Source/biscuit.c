@@ -90,11 +90,11 @@ SOFTWARE.
 
 // Uncomment this to burn default values into persistent memory
 //#define BURN_DEFAULTS
-#define DEFAULT_NODE_NAME               "Php"
-#define DEFAULT_NODE_ID                 125
-#define DEFAULT_NTETORK_NAME_LENGTH     15
-#define DEFAULT_NETWORK_NAME            "BT Mesh Network"
-#define DEFAULT_NETWORK_ID              999
+#define DEFAULT_NODE_NAME               "Challe"
+#define DEFAULT_NODE_ID                 100
+#define DEFAULT_NTETORK_NAME_LENGTH     17
+#define DEFAULT_NETWORK_NAME            "BT Mesh Network 2"
+#define DEFAULT_NETWORK_ID              89
 
 // How often to perform periodic event
 #define SBP_PERIODIC_EVT_PERIOD                   2500
@@ -247,8 +247,9 @@ static void initMeshProtocolWrapper(uint16 networkID, uint16 nodeID);
 static void shedueTaskWrapper(uint16 delay, taskBallbackFunction task);
 static void toggleBlueLed(uint8 state);
 static void toggleBlueLedBlinking(uint8 state);
-
+static void togglePeriodicAdvertisement(uint8 enabled);
 static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys );
+
 
 /*********************************************************************
 * PROFILE CALLBACKS
@@ -474,7 +475,8 @@ void Biscuit_Init( uint8 task_id )
                               shedueTaskWrapper,
                               initMeshProtocolWrapper,
                               toggleBlueLed,
-                              toggleBlueLedBlinking);
+                              toggleBlueLedBlinking,
+                              togglePeriodicAdvertisement);
   applications[3].code = NETWORK_INFORMATION_APPLICATION_CODE;
   applications[3].fun = processIncomingMessageNetworkInformation;
   
@@ -637,7 +639,8 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
     uint8 data[32] = {0x02, GAP_ADTYPE_FLAGS, DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED, 27};
     osal_memcpy(&data[4], firstInQueue->data, firstInQueue->length);
     GAPRole_SetParameter( GAPROLE_ADVERT_DATA, firstInQueue->length+MESH_MESSAGE_FLAG_OFFSET, data);
-    
+    debugPrintLine("Q:");
+    debugPrintRawArray(data, firstInQueue->length+MESH_MESSAGE_FLAG_OFFSET);
     // Start forwarding
     uint8 dummy = TRUE;
     GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &dummy );
@@ -666,6 +669,7 @@ uint16 Biscuit_ProcessEvent( uint8 task_id, uint16 events )
       debugPrintLine("Single");
       pairOtherNodeToThisNetwork();
     } else if(clickCounter <= 4) {
+      pairThisNodeToOtherNetwork();
       // Double click
       debugPrintLine("Double");
     }
@@ -727,9 +731,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
       if(isAdvertisingPeriodically == TRUE) {
         toggleBlueLed(TRUE); // Turn on blue led to indicate connection
         // If we're advertising periodically, turn it off while in connection
-        isAdvertisingPeriodically = FALSE;
-        osal_stop_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD);
-        osal_stop_timerEx(biscuit_TaskID, SBP_STOP_ADV_PERIOD);
+        togglePeriodicAdvertisement(FALSE);
       }
 #ifdef DEBUG_PRINT    
       debugPrintLine("GAPROLE_CONNECTED");
@@ -752,10 +754,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
       if(isAdvertisingPeriodically == FALSE) {
         toggleBlueLed(FALSE); // Turn off blue led to indicate connection
         // Restart periodic advertisement after disconnection
-        osal_stop_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD);
-        osal_stop_timerEx(biscuit_TaskID, SBP_STOP_ADV_PERIOD);
-        osal_start_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_EAGER);
-        isAdvertisingPeriodically = TRUE;
+        togglePeriodicAdvertisement(TRUE);
       }
     }
     break;
@@ -803,6 +802,7 @@ static void simpleBLEObserverEventCB( observerRoleEvent_t *pEvent )
     {
       uint8* data = pEvent->deviceInfo.pEvtData;
       uint8  dataLen = pEvent->deviceInfo.dataLen;
+      //debugPrintRawArray(data, dataLen);
       processIncomingMessage(&data[MESH_MESSAGE_FLAG_OFFSET], dataLen-MESH_MESSAGE_FLAG_OFFSET);
     }
     break;
@@ -1035,7 +1035,8 @@ static void advertiseCallback(uint8* data, uint8 length, uint16 delay)
   uint32 firstAdvertisingTime = getFirstInAdvertisementQueue()->advertisingTimeStamp;
   
   enqueueAdvertisement(length, data, currentTime+delay);
-  
+  debugPrintLine("he");
+  debugPrintRawArray(data, length);
   if (!isForwarding){
     if(queueSize > 0 && getFirstInAdvertisementQueue()->advertisingTimeStamp < firstAdvertisingTime || queueSize == 0) {
       // new first element. Stop timer and start it with the new first advertising timestamp
@@ -1135,5 +1136,19 @@ static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys ) {
   if(clickCounter % 2 == 0) {
     osal_stop_timerEx(biscuit_TaskID, SBP_CLICK_TIMEOUT_EVENT);
     osal_start_timerEx(biscuit_TaskID, SBP_CLICK_TIMEOUT_EVENT, CLICK_TIMEOUT);
+  }
+}
+
+static void togglePeriodicAdvertisement(uint8 enabled) 
+{
+  if(enabled == TRUE) {
+    osal_stop_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD);
+    osal_stop_timerEx(biscuit_TaskID, SBP_STOP_ADV_PERIOD);
+    osal_start_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD, ADV_PERIOD_EAGER);
+    isAdvertisingPeriodically = TRUE;
+  } else {
+    isAdvertisingPeriodically = FALSE;
+    osal_stop_timerEx(biscuit_TaskID, SBP_START_ADV_PERIOD);
+    osal_stop_timerEx(biscuit_TaskID, SBP_STOP_ADV_PERIOD);
   }
 }
